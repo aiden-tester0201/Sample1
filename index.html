@@ -1413,11 +1413,24 @@ function openRequestForm(){
           </div>
           <div class="fr"><div class="fg"><label class="fl">RCU</label><input class="fi" id="rf_rcu"></div></div>
 
-          <div class="rf-sec" style="margin-top:14px">📧 연락처 (자동발송용 · 선택)</div>
+          <div class="rf-sec" style="margin-top:14px">📧 연락처 (회의 소집·자동발송용 · 선택)</div>
           <div class="fr">
             <div class="fg"><label class="fl">요청자 이메일</label><input type="email" class="fi" id="rf_reqEmail" placeholder="name@kaongroup.com"></div>
-            <div class="fg"><label class="fl">주요 관련자 이메일</label><input type="email" class="fi" id="rf_stEmail"></div>
+            <div class="fg"><label class="fl">주요 관련자 이메일</label><input type="email" class="fi" id="rf_stEmail" placeholder="콤마(,)로 여러 명 입력 가능"></div>
           </div>
+
+          <div class="rf-sec" style="margin-top:14px">📅 회의 소집 (저장 시 Outlook 초대 생성 · 발송은 직접)</div>
+          <div class="fr">
+            <div class="fg"><label class="fl">회의 일자</label><input type="date" class="fi" id="rf_mtgDate" value="${t}"></div>
+            <div class="fg"><label class="fl">회의 시각</label><input type="time" class="fi" id="rf_mtgTime" value="15:00"></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label class="fl">회의 장소</label><input class="fi" id="rf_mtgPlace" value="31번 회의실"></div>
+            <div class="fg"><label class="fl">소요 시간(분)</label><input type="number" class="fi" id="rf_mtgDur" value="60" min="15" step="15"></div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ts);margin-top:2px;cursor:pointer">
+            <input type="checkbox" id="rf_mtgEnable" checked style="width:14px;height:14px"> 저장 시 회의 소집 초대(.ics) 자동 생성
+          </label>
 
           <div id="rf_err" class="rf-err"></div>
         </div>
@@ -1468,6 +1481,19 @@ function saveRequestForm(){
   ].filter(Boolean);
   const pmOpinion=_rfv('rf_pm'), strategy=_rfv('rf_strategy');
 
+  // 회의 소집 입력값 (모달 닫기 전에 미리 캡처)
+  const mtg={
+    enable:(()=>{const el=document.getElementById('rf_mtgEnable');return el?el.checked:false;})(),
+    date:_rfv('rf_mtgDate'), time:_rfv('rf_mtgTime')||'15:00',
+    place:_rfv('rf_mtgPlace')||'31번 회의실', dur:parseInt(_rfv('rf_mtgDur'),10)||60,
+    sampleType, costType:_rfv('rf_costType'),
+    country:_rfv('rf_country'), reason, pmOpinion, strategy,
+    sendReq:_rfv('rf_sendReq'),
+    osver:_rfv('rf_osver'), tuner:_rfv('rf_tuner'), mw:_rfv('rf_mw'),
+    cas:_rfv('rf_cas'), mech:_rfv('rf_mech'), wifi:_rfv('rf_wifi'),
+    bt:_rfv('rf_bt'), rcu:_rfv('rf_rcu'),
+  };
+
   const id=nextId();
   const base={
     id, corporation:'그룹',
@@ -1505,6 +1531,162 @@ function saveRequestForm(){
   state.masterCorp='그룹'; state.statusFilter=null; state.masterSearch='';
   showToast(`샘플 요청서 등록 완료: ${operator} · ${projectName}`,'success');
   render();
+
+  // 1차: 저장 즉시 Outlook 회의 소집 초대 자동 생성 (발송은 사용자가 직접)
+  if(mtg.enable){
+    setTimeout(()=>createMeetingInvite(base, mtg), 350);
+  }
+}
+
+// ── 회의 소집 본문 (요청서 영업담당자 + 스펙 부분) ────────────
+function _buildMeetingBody(s, mtg){
+  const dateK=mtg.date?(()=>{const [y,m,d]=mtg.date.split('-');return `${y}년 ${m}월 ${d}일`;})():'(미정)';
+  const timeK=mtg.time?(()=>{const [h,mi]=mtg.time.split(':');const hh=parseInt(h,10);const ap=hh<12?'오전':'오후';const h12=hh%12||12;return `${ap} ${h12}시${mi!=='00'?' '+mi+'분':''}`;})():'';
+  const lines=[
+    `■ 일시 : ${dateK}${timeK?' '+timeK:''}`,
+    `■ 장소 : ${mtg.place}`,
+    ``,
+    `■ 샘플 요청서`,
+    ``,
+    `[영업담당자 작성]`,
+    `· 샘플 구분 : ${mtg.sampleType} / ${mtg.costType||'-'}`,
+    `· 요청 부서 : ${s.salesDept}`,
+    `· 거래선(사업자) : ${s.operator}`,
+    `· 요청담당자 : ${s.requester}`,
+    `· 국가 : ${mtg.country||'-'}`,
+    `· 요청사유 : ${mtg.reason||'-'}`,
+    `· 담당 PM 의견 : ${mtg.pmOpinion||'-'}`,
+    `· 판매 전략 및 예상 판매 수량 : ${mtg.strategy||'-'}`,
+    `· 발송 수량 : ${s.quantity}`,
+    `· 발송 요청일 : ${mtg.sendReq||'-'}`,
+    ``,
+    `[스펙 정보]`,
+    `· 스펙 구분(OS) : ${s.os}`,
+    `· Chip사(제조사) : ${s.manufacturer}`,
+    `· Main Chip : ${s.chip}`,
+    `· OS Version : ${mtg.osver||'-'}`,
+    `· Tuner : ${mtg.tuner||'-'}`,
+    `· MW : ${mtg.mw||'-'}`,
+    `· CAS : ${mtg.cas||'-'}`,
+    `· 기구 : ${mtg.mech||'-'}`,
+    `· Wi-Fi : ${mtg.wifi||'-'}`,
+    `· BT : ${mtg.bt||'-'}`,
+    `· RCU : ${mtg.rcu||'-'}`,
+    ``,
+    `※ 첨부: ${s.attachment}`,
+  ];
+  return lines.join('\n');
+}
+
+// ── Outlook 회의 소집 초대(.ics) 생성 — 발송 X, 작성/확인용 ──
+function createMeetingInvite(s, mtg){
+  const nm=s.projectName||s.requestName||'샘플';
+  const attendees=[s.requesterEmail, ...(String(s.stakeholderEmail||'').split(/[,;]/))]
+    .map(e=>String(e||'').trim()).filter(e=>/.+@.+\..+/.test(e));
+  const body=_buildMeetingBody(s, mtg);
+
+  // 일시 → 로컬 시간 기반 DTSTART/DTEND
+  let dtStart, dtEnd, hasTime=false;
+  if(mtg.date){
+    const [y,m,d]=mtg.date.split('-').map(n=>parseInt(n,10));
+    const [hh,mi]=(mtg.time||'15:00').split(':').map(n=>parseInt(n,10));
+    const st=new Date(y,m-1,d,hh,mi,0);
+    const en=new Date(st.getTime()+(mtg.dur||60)*60000);
+    const fmt=dt=>`${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}${String(dt.getMinutes()).padStart(2,'0')}00`;
+    dtStart=fmt(st); dtEnd=fmt(en); hasTime=true;
+  }
+  const dtStamp=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const uid=`sample-mtg-${s.id}-${Date.now()}@kaongroup`;
+  const esc=t=>String(t).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+
+  const ics=[
+    'BEGIN:VCALENDAR',
+    'PRODID:-//KAON Sample Mgmt//Meeting//KO',
+    'VERSION:2.0',
+    'CALSCALE:GREGORIAN',
+    'METHOD:REQUEST',                 // 회의 초대(REQUEST) → Outlook이 회의로 인식
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${dtStamp}`,
+    hasTime?`DTSTART:${dtStart}`:`DTSTART;VALUE=DATE:${(mtg.date||'').replace(/-/g,'')}`,
+    hasTime?`DTEND:${dtEnd}`:'',
+    `SUMMARY:[샘플 회의 소집] ${s.operator} - ${nm}`,
+    `LOCATION:${esc(mtg.place)}`,
+    `DESCRIPTION:${esc(body)}`,
+    'ORGANIZER;CN=샘플운영:mailto:noreply@kaongroup.com',
+    ...attendees.map(e=>`ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${e}`),
+    'STATUS:CONFIRMED',
+    'SEQUENCE:0',
+    'BEGIN:VALARM',
+    'TRIGGER:-PT30M',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:회의 30분 전 알림`,
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+
+  // .ics 다운로드 → 더블클릭 시 Outlook 회의 초대 작성창으로 열림(발송 전)
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8;method=REQUEST'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  const fname=`회의소집_${s.operator}_${nm}`.replace(/[\\/:*?"<>|]/g,'_').replace(/\s+/g,'_');
+  a.href=url; a.download=`${fname}.ics`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+
+  // 안내 모달: 초대 생성 결과 + 수동 발송 안내
+  _showMeetingInviteModal(s, mtg, attendees, body);
+}
+
+// 회의 초대 생성 후 안내·미리보기 모달
+function _showMeetingInviteModal(s, mtg, attendees, body){
+  const nm=s.projectName||s.requestName||'샘플';
+  const subj=`[샘플 회의 소집] ${s.operator} - ${nm}`;
+  const to=attendees.join(';');
+  const webUrl=`https://outlook.office.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}&location=${encodeURIComponent(mtg.place)}&to=${encodeURIComponent(to)}`;
+  const noAtt=attendees.length===0;
+  document.getElementById('mc').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="max-width:560px;max-height:86vh">
+        <div class="mh"><div class="mt">📅 회의 소집 초대 생성됨 <span style="font-size:11px;font-weight:600;color:var(--tm)">· 발송은 직접</span></div><button class="mc" onclick="closeModal()">×</button></div>
+        <div class="mb">
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:11px 13px;font-size:12px;color:#15803d;margin-bottom:12px">
+            ✅ <strong>회의 초대 파일(.ics)이 다운로드</strong>되었습니다.<br>
+            파일을 더블클릭하면 Outlook 회의 작성창이 열립니다. 내용 확인 후 <strong>[보내기]를 직접</strong> 눌러 발송하세요. (자동 발송되지 않습니다)
+          </div>
+          ${noAtt?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:9px 12px;font-size:11.5px;color:#c2410c;margin-bottom:12px">⚠️ 참석자 이메일이 없습니다. 요청서의 요청자/관련자 이메일을 입력하면 참석자가 자동 지정됩니다.</div>`:`<div style="font-size:11.5px;color:var(--ts);margin-bottom:6px"><strong>참석자(${attendees.length})</strong> : ${esc(attendees.join(', '))}</div>`}
+          <div style="font-size:11.5px;color:var(--ts);margin-bottom:8px"><strong>제목</strong> : ${esc(subj)}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--ts);margin-bottom:4px">본문 미리보기</div>
+          <pre style="background:var(--surf);border:1px solid var(--brd);border-radius:6px;padding:11px;font-size:11px;line-height:1.6;white-space:pre-wrap;font-family:inherit;max-height:240px;overflow:auto;color:var(--tp)">${esc(body)}</pre>
+        </div>
+        <div class="mf">
+          <button class="btn btn-o" onclick="closeModal()">닫기</button>
+          <button class="btn btn-o" onclick="window.open('${webUrl}','_blank')">🌐 Outlook 웹에서 열기</button>
+          <button class="btn btn-p" onclick="reDownloadInvite(${s.id})">⬇ .ics 다시 받기</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// 마지막 회의 초대 재생성용(요청서 데이터 기반 기본 일시로)
+function reDownloadInvite(id){
+  const s=samples.find(x=>x.id===id);if(!s)return;
+  const mtg=_defaultMtgFromSample(s);
+  createMeetingInvite(s, mtg);
+}
+function _defaultMtgFromSample(s){
+  const fb=String(s.monitoringFeedback||'');
+  const pick=(label)=>{const m=fb.match(new RegExp('\\['+label+'\\]\\s*([^\\n]*)'));return m?m[1].trim():'';};
+  const spec=pick('스펙');
+  const sp=(k)=>{const m=spec.match(new RegExp(k+':\\s*([^/]*)'));return m?m[1].trim():'';};
+  const stLine=pick('샘플구분').split('/');
+  return {
+    enable:true, date:s.requestDate||_today8(), time:'15:00', place:'31번 회의실', dur:60,
+    sampleType:(stLine[0]||'').trim(), costType:(stLine[1]||'').trim(),
+    country:pick('국가'), reason:pick('요청사유'), pmOpinion:pick('PM의견'), strategy:pick('판매전략'),
+    sendReq:s.dueDate||'',
+    osver:sp('OS Ver'), tuner:sp('Tuner'), mw:sp('MW'), cas:sp('CAS'),
+    mech:s.meetingStructure||'', wifi:sp('Wi-Fi'), bt:sp('BT'), rcu:sp('RCU'),
+  };
 }
 
 function toggleAll(c){const d=filteredBy(state.masterCorp,state.statusFilter);if(c)d.forEach(s=>state.selectedRows.add(s.id));else d.forEach(s=>state.selectedRows.delete(s.id));render();}
