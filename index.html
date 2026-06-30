@@ -1,5 +1,6 @@
 <title>샘플 운영 관리 시스템</title>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" onerror="window._xlsxUnavailable=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--navy-deep:#0d2240;--navy:#1e3a5f;--navy-h:#274e80;--amber:#f59e0b;--surf:#f0f4f8;--white:#fff;--brd:#e2e8f0;--tp:#0f172a;--ts:#4a5568;--tm:#94a3b8;--s-req:#3b82f6;--s-req-bg:#eff6ff;--s-prep:#f97316;--s-prep-bg:#fff7ed;--s-fb:#8b5cf6;--s-fb-bg:#f5f3ff;--s-done:#16a34a;--s-done-bg:#f0fdf4;--s-rej:#dc2626;--s-rej-bg:#fef2f2;--bb:#6d28d9;--bb-bg:#ede9fe}
 /* 상태: 샘플 요청=파랑, 샘플 준비 중=주황, 샘플 발송=보라, 샘플 회수=초록 */
@@ -238,20 +239,113 @@ let samples=[
 ];
 
 const STORAGE_KEY='kaon_samples_v1';
-function loadSamples(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
-function saveSamples(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(samples));}catch(e){}}
+// ════════════════════════════════════════════════════════════════
+//  Supabase 연결 설정  ※ 아래 두 값을 본인 것으로 바꿔주세요
+// ════════════════════════════════════════════════════════════════
+const SUPABASE_URL = "https://kdpzozuqcrrqbgiczzan.supabase.co";
+const SUPABASE_KEY = "sb_publishable_kvrhp04QSgp9R5fnCAvYwg_Y-UksOFu";
+// ════════════════════════════════════════════════════════════════
+
+let _sb=null;
+try{
+  if(window.supabase && SUPABASE_URL.startsWith('http')){
+    _sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  }
+}catch(e){console.error('Supabase 초기화 실패',e);}
+
 function normalizeYear(v){
   if(v===undefined||v===null||String(v).trim()==='')return 2026;
   const digits=String(v).replace(/[^0-9]/g,'');
   const n=parseInt(digits,10);
   return Number.isFinite(n)&&n>0?n:2026;
 }
-{const saved=loadSamples();if(saved&&saved.length)samples=saved;}
-// 과거에 잘못 저장된 year 값(공백/한글 혼입 등)을 정수로 정규화하고, 변경된 경우 즉시 저장
-{
-  let changed=false;
-  samples.forEach(s=>{const nv=normalizeYear(s.year);if(s.year!==nv){s.year=nv;changed=true;}});
-  if(changed)saveSamples();
+
+// 로컬 백업(연결 실패 시 대비용)
+function loadSamples(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
+function _localBackup(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(samples));}catch(e){}}
+
+// ── Supabase 동기화 함수들 ──────────────────────────────
+// 한 건 저장/수정 (id 기준으로 있으면 수정, 없으면 추가)
+async function _sbUpsert(s){
+  if(!_sb)return;
+  try{
+    const {error}=await _sb.from('samples').upsert({id:s.id,data:s,updated_at:new Date().toISOString()});
+    if(error)throw error;
+  }catch(e){console.error('저장 실패',e);showToast('서버 저장 실패: '+(e.message||e),'error');}
+}
+// 한 건 삭제
+async function _sbDelete(id){
+  if(!_sb)return;
+  try{
+    const {error}=await _sb.from('samples').delete().eq('id',id);
+    if(error)throw error;
+  }catch(e){console.error('삭제 실패',e);showToast('서버 삭제 실패: '+(e.message||e),'error');}
+}
+// 여러 건 삭제
+async function _sbDeleteMany(ids){
+  if(!_sb)return;
+  try{
+    const {error}=await _sb.from('samples').delete().in('id',ids);
+    if(error)throw error;
+  }catch(e){console.error('삭제 실패',e);showToast('서버 삭제 실패: '+(e.message||e),'error');}
+}
+// 전체 교체(엑셀 업로드용): 기존 전부 지우고 새로 넣기
+async function _sbReplaceAll(list){
+  if(!_sb)return;
+  try{
+    const {error:delErr}=await _sb.from('samples').delete().neq('id',-999999);
+    if(delErr)throw delErr;
+    if(list.length){
+      const rows=list.map(s=>({id:s.id,data:s,updated_at:new Date().toISOString()}));
+      const {error:insErr}=await _sb.from('samples').insert(rows);
+      if(insErr)throw insErr;
+    }
+  }catch(e){console.error('전체 교체 실패',e);showToast('서버 저장 실패: '+(e.message||e),'error');}
+}
+
+// 호환용: 기존 코드가 saveSamples()를 호출하면 로컬 백업만 (서버 저장은 개별 함수가 담당)
+function saveSamples(){_localBackup();}
+
+// 서버에서 전체 불러오기
+async function _sbLoadAll(){
+  if(!_sb)return null;
+  try{
+    const {data,error}=await _sb.from('samples').select('data').order('id',{ascending:true});
+    if(error)throw error;
+    return data.map(r=>r.data);
+  }catch(e){console.error('불러오기 실패',e);showToast('서버 불러오기 실패: '+(e.message||e),'error');return null;}
+}
+
+// 최초 1회: 서버가 비어있으면 현재 기본 데이터를 서버에 업로드(초기 시드)
+async function _sbSeedIfEmpty(){
+  if(!_sb)return;
+  try{
+    const {count,error}=await _sb.from('samples').select('id',{count:'exact',head:true});
+    if(error)throw error;
+    if(!count){
+      const rows=samples.map(s=>({id:s.id,data:s,updated_at:new Date().toISOString()}));
+      if(rows.length){await _sb.from('samples').insert(rows);}
+    }
+  }catch(e){console.error('초기화 실패',e);}
+}
+
+// 앱 시작 시 서버 데이터로 동기화
+async function initData(){
+  // year 값 정규화(기본 데이터)
+  samples.forEach(s=>{const nv=normalizeYear(s.year);if(s.year!==nv)s.year=nv;});
+  if(_sb){
+    await _sbSeedIfEmpty();
+    const loaded=await _sbLoadAll();
+    if(loaded&&loaded.length){
+      loaded.forEach(s=>{const nv=normalizeYear(s.year);if(s.year!==nv)s.year=nv;});
+      samples=loaded;
+    }
+  }else{
+    // 서버 미연결 시 로컬 백업 사용
+    const saved=loadSamples();if(saved&&saved.length)samples=saved;
+  }
+  _localBackup();
+  render();
 }
 
 let state={view:'dashboard',dashCorp:'그룹',dashYear:'all',masterCorp:'그룹',boardCorp:'그룹',boardMode:'table',selectedId:null,panelOpen:false,panelMode:'detail',listPanelData:null,statusFilter:null,editData:{},selectedRows:new Set(),paTab:'arch',editCell:null,masterSearch:''};
@@ -1163,7 +1257,7 @@ function savePanel(id){
   const idx=samples.findIndex(x=>x.id===id);if(idx<0)return;const s=samples[idx];
   const g=k=>{const el=document.getElementById(k);return el?el.value:undefined;};
   samples[idx]={...s,status:state.editData.status||s.status,meetingHW:g('e_hw')??s.meetingHW,meetingSW:g('e_sw')??s.meetingSW,meetingStructure:g('e_st')??s.meetingStructure,dueDate:g('e_pd')??s.dueDate,feedbackDate:g('e_fd')??s.feedbackDate,monitoringStart:g('e_ms')??s.monitoringStart,monitoringEnd:g('e_me')??s.monitoringEnd,monitoringFeedback:g('e_mf')??s.monitoringFeedback,requester:g('e_rq')??s.requester,keyContacts:g('e_kc')??s.keyContacts,requesterEmail:g('e_re')??s.requesterEmail,stakeholderEmail:g('e_se')??s.stakeholderEmail};
-  saveSamples();showToast('저장되었습니다','success');closePanel();
+  saveSamples();_sbUpsert(samples[idx]);showToast('저장되었습니다','success');closePanel();
 }
 function addSample(){
   const corp=state.view==='board'?state.boardCorp:state.masterCorp;
@@ -1172,7 +1266,7 @@ function addSample(){
   base.requesterEmail='';base.stakeholderEmail='';
   if(corp==='그룹')Object.assign(base,{projectName:'새 샘플 '+id,os:'',manufacturer:'',chip:''});
   else Object.assign(base,{modelName:'새 모델 '+id,productGroup:'',country:'',purpose:''});
-  samples.push(base);saveSamples();openPanel(id);
+  samples.push(base);saveSamples();_sbUpsert(base);openPanel(id);
 }
 function toggleAll(c){const d=filteredBy(state.masterCorp,state.statusFilter);if(c)d.forEach(s=>state.selectedRows.add(s.id));else d.forEach(s=>state.selectedRows.delete(s.id));render();}
 function toggleRow(id,c){if(c)state.selectedRows.add(id);else state.selectedRows.delete(id);render();}
@@ -1194,7 +1288,7 @@ function commitCellEdit(id,key){
   else if(key==='quantity'||key==='returnQuantity')val=parseInt(val,10)||0;
   samples[idx][key]=val;
   state.editCell=null;
-  saveSamples();
+  saveSamples();_sbUpsert(samples[idx]);
   render();
 }
 function openSingleDeleteConfirm(id){
@@ -1215,7 +1309,7 @@ function openSingleDeleteConfirm(id){
 function deleteSingleSample(id){
   samples=samples.filter(s=>s.id!==id);
   state.selectedRows.delete(id);
-  saveSamples();closeModal();closePanel();showToast('삭제되었습니다','success');render();
+  saveSamples();_sbDelete(id);closeModal();closePanel();showToast('삭제되었습니다','success');render();
 }
 function openDeleteConfirm(){
   const ids=[...state.selectedRows];if(!ids.length)return;
@@ -1237,7 +1331,7 @@ function deleteSamples(){
   const ids=[...state.selectedRows];if(!ids.length)return;
   samples=samples.filter(s=>!ids.includes(s.id));
   state.selectedRows=new Set();
-  saveSamples();closeModal();showToast(`${ids.length}건 삭제되었습니다`,'success');render();
+  saveSamples();_sbDeleteMany(ids);closeModal();showToast(`${ids.length}건 삭제되었습니다`,'success');render();
 }
 function toggleFM(){const m=document.getElementById('sfm');if(m)m.classList.toggle('open');}
 function setFilter(v){state.statusFilter=v||null;const m=document.getElementById('sfm');if(m)m.classList.remove('open');render();}
@@ -1511,7 +1605,7 @@ function applyImport(){
     samples=[...samples,...rows];
   }
   _pendingImportRows=[];
-  saveSamples();closeModal();render();
+  saveSamples();_sbReplaceAll(samples);closeModal();render();
   showToast(`Import 완료: ${rows.length}건 ${mode==='replace'?'전체 교체':'추가'}됨`,'success');
 }
 
@@ -1600,5 +1694,5 @@ function doExport(){
   }
 }
 
-render();
+initData();
 </script>
