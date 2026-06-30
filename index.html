@@ -1,0 +1,1604 @@
+<title>샘플 운영 관리 시스템</title>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" onerror="window._xlsxUnavailable=true"></script>
+<style>
+:root{--navy-deep:#0d2240;--navy:#1e3a5f;--navy-h:#274e80;--amber:#f59e0b;--surf:#f0f4f8;--white:#fff;--brd:#e2e8f0;--tp:#0f172a;--ts:#4a5568;--tm:#94a3b8;--s-req:#3b82f6;--s-req-bg:#eff6ff;--s-prep:#f97316;--s-prep-bg:#fff7ed;--s-fb:#8b5cf6;--s-fb-bg:#f5f3ff;--s-done:#16a34a;--s-done-bg:#f0fdf4;--s-rej:#dc2626;--s-rej-bg:#fef2f2;--bb:#6d28d9;--bb-bg:#ede9fe}
+/* 상태: 샘플 요청=파랑, 샘플 준비 중=주황, 샘플 발송=보라, 샘플 회수=초록 */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var(--surf);color:var(--tp);font-size:13px;line-height:1.5}
+button,input,select,textarea{font-family:inherit}
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;background:var(--navy-deep);display:flex;flex-direction:column;flex-shrink:0;user-select:none}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.sb-logo-main{color:#fff;font-size:12.5px;font-weight:800;line-height:1.3}
+.sb-logo-sub{color:var(--amber);font-size:10.5px;margin-top:2px}
+.sb-nav{padding:10px 8px;flex:1}
+.sb-sec{font-size:9.5px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:.1em;text-transform:uppercase;padding:10px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:rgba(255,255,255,.55);font-size:12.5px;font-weight:500;transition:all .12s;margin-bottom:1px}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;font-weight:600}
+.nav-item.active .ndot{background:var(--amber)}
+.ndot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0}
+.sb-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.3);font-size:10.5px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{background:#fff;border-bottom:1px solid var(--brd);padding:0 16px;height:50px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
+.topbar-l{display:flex;align-items:center;gap:8px;min-width:0}
+.topbar-title{font-size:14.5px;font-weight:800;color:var(--navy-deep);white-space:nowrap}
+.topbar-r{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.content{flex:1;overflow-y:auto;padding:16px 20px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;border:none;transition:all .12s;white-space:nowrap;cursor:pointer}
+.btn-p{background:var(--navy);color:#fff}.btn-p:hover{background:var(--navy-h)}
+.btn-o{background:#fff;color:var(--ts);border:1px solid var(--brd)}.btn-o:hover{background:var(--surf)}
+.btn-g{background:#16a34a;color:#fff}.btn-g:hover{background:#15803d}
+.btn-r{background:#dc2626;color:#fff}.btn-r:hover{background:#b91c1c}
+.btn-sm{padding:5px 10px;font-size:11.5px}
+/* Corp tabs */
+.corp-tabs{display:flex;gap:0;border-bottom:2px solid var(--brd);margin-bottom:14px}
+.ct{padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--tm);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .12s;background:none;border-top:none;border-left:none;border-right:none}
+.ct:hover{color:var(--ts)}
+.ct.active{color:var(--navy);border-bottom-color:var(--navy)}
+.ct.active-bb{color:var(--bb);border-bottom-color:var(--bb)}
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi-card{background:#fff;border-radius:8px;padding:16px;border:1px solid var(--brd);display:flex;align-items:flex-start;gap:12px}
+.kpi-ico{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.kpi-v{font-size:26px;font-weight:900;color:var(--tp);font-variant-numeric:tabular-nums;line-height:1}
+.kpi-l{font-size:11px;color:var(--ts);margin-top:3px;line-height:1.3}
+/* Charts */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.chart-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.chart-card{background:#fff;border-radius:8px;border:1px solid var(--brd);padding:16px;overflow:hidden}
+.chart-scroll::-webkit-scrollbar{width:6px}
+.chart-scroll::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+.chart-scroll::-webkit-scrollbar-track{background:transparent}
+.chart-title{font-size:12px;font-weight:700;color:var(--ts);margin-bottom:12px}
+.sec-divider{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+.sec-divider::after{content:"";flex:1;height:1px;background:var(--brd)}
+.sec-divider span{font-size:12.5px;font-weight:800;color:var(--navy-deep);background:#fff;border:1px solid var(--brd);padding:4px 12px;border-radius:20px;white-space:nowrap}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ts)}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+/* Badge */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-req{background:var(--s-req-bg);color:var(--s-req)}.b-prep{background:var(--s-prep-bg);color:var(--s-prep)}
+.b-fb{background:var(--s-fb-bg);color:var(--s-fb)}.b-done{background:var(--s-done-bg);color:var(--s-done)}
+.b-rej{background:var(--s-rej-bg);color:var(--s-rej)}
+.corp-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700}
+.cb-g{background:#dbeafe;color:#1d4ed8}.cb-bb{background:var(--bb-bg);color:var(--bb)}
+/* Table */
+.tw{background:#fff;border-radius:8px;border:1px solid var(--brd);overflow:hidden}
+.tscroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+thead th{background:var(--navy);color:#fff;font-size:11px;font-weight:600;padding:8px 10px;text-align:left;white-space:nowrap;border-right:1px solid rgba(255,255,255,.1)}
+thead th:last-child{border-right:none}
+.gh th{background:var(--navy-deep);font-size:9.5px;text-align:center;text-transform:uppercase;letter-spacing:.08em;padding:5px 10px;color:rgba(255,255,255,.7)}
+.fth{display:inline-flex;align-items:center;gap:3px}
+.fbtn{background:none;border:none;color:rgba(255,255,255,.5);font-size:9px;padding:1px 2px;cursor:pointer;border-radius:2px}
+.fbtn:hover{color:#fff;background:rgba(255,255,255,.15)}
+tbody tr{border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s}
+tbody tr:hover{background:#f8fafc}tbody tr:last-child{border-bottom:none}
+td{padding:8px 10px;font-size:12px;color:var(--tp);vertical-align:middle;white-space:nowrap;border-right:1px solid var(--brd)}
+.td-editable{cursor:text;transition:background .1s}
+.td-editable:hover{background:#eff6ff;outline:1px dashed #93c5fd;outline-offset:-2px}
+.cell-edit{width:100%;padding:5px 7px;border:1.5px solid var(--navy);border-radius:4px;font-size:12px;font-family:inherit;background:#fff;color:var(--tp)}
+.cell-edit:focus{outline:none;box-shadow:0 0 0 2px rgba(30,58,95,.15)}
+td:last-child{border-right:none}
+.td-tr{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.chk-c{width:32px;padding:0 8px;text-align:center}
+input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--navy)}
+tr.row-sel{background:#eff6ff!important}
+/* Filter menu */
+.fw{position:relative;display:inline-flex}
+.fm{position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--brd);border-radius:6px;padding:4px;z-index:200;min-width:130px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none}
+.fm.open{display:block}
+.fmi{padding:5px 10px;font-size:12px;cursor:pointer;border-radius:4px;color:var(--tp);white-space:nowrap}
+.fmi:hover{background:var(--surf)}.fmi.sel{background:var(--navy);color:#fff}
+/* Board */
+.vtog{display:flex;gap:3px;background:var(--surf);border-radius:6px;padding:3px}
+.vt{padding:5px 13px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--ts);transition:all .12s}
+.vt.active{background:#fff;color:var(--tp);box-shadow:0 1px 3px rgba(0,0,0,.1);font-weight:700}
+/* Relative date */
+.rd{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px}
+.rd-u{background:var(--s-rej-bg);color:var(--s-rej)}.rd-w{background:var(--s-prep-bg);color:var(--s-prep)}
+.rd-n{background:var(--surf);color:var(--ts)}.rd-d{color:var(--tm);font-size:11px}
+/* Avatar */
+.av{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0}
+.av-row{display:flex;align-items:center;gap:5px}
+/* Kanban */
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:start}
+.k-col{background:var(--surf);border-radius:8px;overflow:hidden;border:1px solid var(--brd)}
+.k-hdr{padding:9px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--brd);background:#fff}
+.k-hl{font-size:11.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+.k-cnt{background:rgba(0,0,0,.07);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
+.k-body{padding:8px;display:flex;flex-direction:column;gap:7px;min-height:60px}
+.k-card{background:#fff;border-radius:6px;padding:11px;border:1px solid var(--brd);cursor:pointer;transition:box-shadow .12s}
+.k-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.k-title{font-size:12px;font-weight:700;margin-bottom:6px;line-height:1.4;white-space:normal}
+.k-meta{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--ts)}
+/* Slide panel */
+.overlay{position:fixed;inset:0;background:rgba(13,34,64,.35);z-index:100;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(1px)}
+.overlay.open{opacity:1;pointer-events:all}
+.slide-panel{position:fixed;top:0;right:-470px;width:454px;height:100vh;background:#fff;z-index:101;display:flex;flex-direction:column;transition:right .3s cubic-bezier(.16,1,.3,1);box-shadow:-6px 0 32px rgba(0,0,0,.14)}
+.slide-panel.open{right:0}
+.sp-in{display:flex;flex:1;overflow:hidden}
+.sp-acc{width:5px;background:var(--amber);flex-shrink:0}
+.sp-body{flex:1;overflow-y:auto;padding:18px 18px 0}
+.sp-hdr{padding-bottom:12px;border-bottom:1px solid var(--brd);margin-bottom:14px}
+.sp-ht{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.sp-rn{font-size:12.5px;font-weight:800;color:var(--navy);line-height:1.4}
+.sp-cl{background:none;border:none;font-size:20px;color:var(--tm);padding:0;line-height:1;cursor:pointer}
+.sp-sub{font-size:11px;color:var(--tm);margin-top:4px;display:flex;align-items:center;gap:6px}
+.sp-sec{margin-bottom:14px}
+.sp-st{font-size:9.5px;font-weight:800;color:var(--tm);letter-spacing:.09em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.sp-st::after{content:'';flex:1;height:1px;background:var(--brd)}
+.fr{display:flex;gap:8px;margin-bottom:8px}
+.fg{flex:1;min-width:0}
+.fl{font-size:11px;font-weight:600;color:var(--ts);margin-bottom:3px;display:block}
+.fi,.fs,.fta{width:100%;padding:6px 8px;border:1px solid var(--brd);border-radius:5px;font-size:12px;color:var(--tp);transition:border-color .12s;background:#fff}
+.fi:focus,.fs:focus,.fta:focus{outline:none;border-color:var(--navy)}
+.fta{resize:vertical;min-height:68px;line-height:1.5}
+.st-opts{display:flex;gap:5px;flex-wrap:wrap}
+.st-o{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:2px solid transparent;opacity:.6;transition:all .12s}
+.st-o:hover{opacity:.85}.st-o.sel{opacity:1;border-color:currentColor}
+.file-item{display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--surf);border-radius:5px;border:1px solid var(--brd);font-size:11.5px;color:var(--ts);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-foot{padding:12px 18px;border-top:1px solid var(--brd);display:flex;gap:7px;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap}
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(13,34,64,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:#fff;border-radius:10px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.mh{padding:18px 20px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.mt{font-size:14px;font-weight:800;color:var(--navy-deep)}
+.mc{background:none;border:none;font-size:20px;color:var(--tm);cursor:pointer;line-height:1}
+.mb{padding:16px 20px;overflow-y:auto;flex:1}
+.mf{padding:12px 20px;border-top:1px solid var(--brd);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+.err-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--brd);font-size:12px}
+.err-row:last-child{border-bottom:none}
+.eb{padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;flex-shrink:0}
+.eb-e{background:var(--s-rej-bg);color:var(--s-rej)}.eb-w{background:var(--s-prep-bg);color:var(--s-prep)}
+.imp-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--brd);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color .12s}
+.imp-opt:hover,.imp-opt.sel{border-color:var(--navy);background:#f8fafc}
+.imp-opt input[type=radio]{accent-color:var(--navy)}
+/* Toast */
+#tc{position:fixed;bottom:20px;right:20px;z-index:400;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--navy-deep);color:#fff;padding:10px 16px;border-radius:7px;font-size:12px;font-weight:500;min-width:200px;max-width:320px;display:flex;align-items:flex-start;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:tIn .2s ease;pointer-events:all}
+.t-ico{font-size:14px;flex-shrink:0}
+.t-s{border-left:4px solid var(--s-done)}.t-e{border-left:4px solid var(--s-rej)}.t-w{border-left:4px solid var(--amber)}.t-i{border-left:4px solid var(--s-req)}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* PA Guide */
+.g-tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.g-tab{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--brd);background:#fff;color:var(--ts);transition:all .12s}
+.g-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.g-sec{background:#fff;border-radius:8px;border:1px solid var(--brd);margin-bottom:12px;overflow:hidden}
+.g-sh{background:var(--navy-deep);color:#fff;padding:12px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.g-bd{padding:16px}
+.flow-wrap{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:10px 0}
+.fb{background:var(--surf);border:1px solid var(--brd);border-radius:6px;padding:8px 12px;font-size:12px;font-weight:600;text-align:center}
+.fa{font-size:16px;color:var(--tm);padding:0 6px}
+.sc-tbl{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:8px}
+.sc-tbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:left;font-weight:600;font-size:11px}
+.sc-tbl td{padding:6px 10px;border-bottom:1px solid var(--brd);vertical-align:top}
+.sc-tbl tr:last-child td{border-bottom:none}
+.code-block{background:#1e293b;color:#e2e8f0;padding:14px;border-radius:6px;font-family:'Cascadia Code','Consolas',monospace;font-size:11.5px;line-height:1.6;overflow-x:auto;white-space:pre;margin-bottom:10px}
+.cl-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd)}
+.cl-item:last-child{border-bottom:none}
+.cl-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--navy);flex-shrink:0;margin-top:1px}
+.email-preview{background:#f8fafc;border:1px solid var(--brd);border-radius:6px;padding:14px;font-size:12px;line-height:1.7;margin-bottom:10px}
+.email-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff}
+.empty{text-align:center;padding:36px 20px;color:var(--tm);font-size:12px}
+</style>
+
+<input type="file" id="ifi" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleImportFile(event)">
+<div id="root"></div>
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+<div class="slide-panel" id="slidePanel">
+  <div class="sp-in">
+    <div class="sp-acc"></div>
+    <div class="sp-body" id="panelBody"></div>
+  </div>
+  <div class="sp-foot" id="panelFoot"></div>
+</div>
+<div id="mc"></div>
+<div id="tc"></div>
+
+<script>
+const TODAY = new Date('2026-06-26');
+// 2단계 MD - 진행 상태 4가지 고정값 (띄어쓰기 포함)
+const STATUS_MAP={'샘플 요청':{cls:'b-req',icon:'📝',color:'#3b82f6'},'샘플 준비 중':{cls:'b-prep',icon:'🔄',color:'#f97316'},'샘플 발송':{cls:'b-fb',icon:'📤',color:'#8b5cf6'},'샘플 회수':{cls:'b-done',icon:'✅',color:'#16a34a'}};
+const STATUSES=Object.keys(STATUS_MAP);
+
+// 2단계 MD - 그룹 필수 컬럼: OS·제조사·Chip·수량 포함
+const COL_MAP_G=[
+  {excel:'영업부서',key:'salesDept',req:true,type:'string'},{excel:'영업 담당자',key:'salesManager',req:true,type:'string'},
+  {excel:'사업자',key:'operator',req:true,type:'string'},{excel:'샘플 프로젝트명',key:'projectName',req:true,type:'string'},
+  {excel:'년도',key:'year',req:true,type:'number'},{excel:'OS',key:'os',req:true,type:'string'},
+  {excel:'제조사',key:'manufacturer',req:true,type:'string'},{excel:'Chip',key:'chip',req:true,type:'string'},
+  {excel:'수량',key:'quantity',req:true,type:'number'},{excel:'진행 상태',key:'status',req:true,type:'status'},
+  {excel:'피드백 예정일자',key:'feedbackDate',req:false,type:'date'},{excel:'사업자 피드백 및 발송 이후 진행사항',key:'operatorFeedback',req:false,type:'string'},
+  {excel:'회수여부',key:'isReturned',req:false,type:'string'},{excel:'회수 불가사유',key:'returnImpossibleReason',req:false,type:'string'},
+  {excel:'수주여부',key:'isOrdered',req:false,type:'string'},{excel:'회수 수량',key:'returnQuantity',req:false,type:'number'},
+];
+// 2단계 MD - 브로드밴드 필수 컬럼: 제품군·국가·용도·수량 포함
+const COL_MAP_BB=[
+  {excel:'영업부서',key:'salesDept',req:true,type:'string'},{excel:'영업 담당자',key:'salesManager',req:true,type:'string'},
+  {excel:'사업자',key:'operator',req:true,type:'string'},{excel:'모델명',key:'modelName',req:true,type:'string'},
+  {excel:'년도',key:'year',req:true,type:'number'},{excel:'제품군',key:'productGroup',req:true,type:'string'},
+  {excel:'국가',key:'country',req:true,type:'string'},{excel:'용도',key:'purpose',req:true,type:'string'},
+  {excel:'수량',key:'quantity',req:true,type:'number'},{excel:'진행 상태',key:'status',req:true,type:'status'},
+  {excel:'피드백 예정일자',key:'feedbackDate',req:false,type:'date'},{excel:'사업자 피드백 및 발송 이후 진행사항',key:'operatorFeedback',req:false,type:'string'},
+  {excel:'회수여부',key:'isReturned',req:false,type:'string'},{excel:'회수 불가사유',key:'returnImpossibleReason',req:false,type:'string'},
+  {excel:'수주여부',key:'isOrdered',req:false,type:'string'},{excel:'회수 수량',key:'returnQuantity',req:false,type:'number'},
+];
+function getColMap(c){return c==='브로드밴드'?COL_MAP_BB:COL_MAP_G;}
+
+let samples=[
+  {id:1,corporation:'그룹',salesDept:'영업1팀',salesManager:'김민준',operator:'Samsung',projectName:'ProMax 5G Module',year:2025,os:'Android',manufacturer:'Qualcomm',chip:'Snapdragon 8 Gen3',quantity:3,status:'샘플 준비 중',feedbackDate:'2026-07-15',operatorFeedback:'개발팀 검토 중. 발열 이슈 추가 확인 필요.',isReturned:'미회수',returnImpossibleReason:'',isOrdered:'검토중',returnQuantity:0,requestName:'20260601_Samsung_SD8Gen3_성능테스트',meetingHW:'메인보드, RF 안테나 모듈',meetingSW:'펌웨어 v2.1',meetingStructure:'방열 케이스',dueDate:'2026-07-01',monitoringStart:'2026-07-15',monitoringEnd:'2026-08-15',monitoringFeedback:'배터리 성능 우수, 발열 이슈 점검 필요.',requester:'김민준',keyContacts:'이개발, 박품질',requesterEmail:'minjun.kim@kaongroup.com',stakeholderEmail:'dev.lee@kaongroup.com',attachment:'260601_개발사업본부 샘플요청서_ProMax5G_영업1팀_김민준.xlsx'},
+  {id:2,corporation:'그룹',salesDept:'영업2팀',salesManager:'이서연',operator:'LG Electronics',projectName:'UltraSlim X1',year:2025,os:'Android',manufacturer:'MediaTek',chip:'Dimensity 9300',quantity:5,status:'샘플 발송',feedbackDate:'2026-06-30',operatorFeedback:'샘플 발송 완료. 고객사 테스트 진행 중.',isReturned:'미회수',returnImpossibleReason:'',isOrdered:'미결정',returnQuantity:0,requestName:'20260515_LGE_DM9300_슬림화검토',meetingHW:'슬림 PCB, 방수 모듈',meetingSW:'카메라 HAL 최적화',meetingStructure:'0.8mm 박막',dueDate:'2026-06-10',monitoringStart:'2026-06-20',monitoringEnd:'2026-07-20',monitoringFeedback:'두께 달성. SW 최적화 자료 요청.',requester:'이서연',keyContacts:'최기술, 정상품',requesterEmail:'seoyeon.lee@kaongroup.com',stakeholderEmail:'tech.choi@kaongroup.com',attachment:'260515_개발사업본부 샘플요청서_UltraSlimX1_영업2팀_이서연.xlsx'},
+  {id:3,corporation:'그룹',salesDept:'영업3팀',salesManager:'박지호',operator:'KT',projectName:'Connect Pro',year:2026,os:'Android',manufacturer:'Qualcomm',chip:'Snapdragon 7s Gen3',quantity:2,status:'샘플 요청',feedbackDate:'2026-08-01',operatorFeedback:'',isReturned:'-',returnImpossibleReason:'',isOrdered:'-',returnQuantity:0,requestName:'20260620_KT_SD7sGen3_네트워크최적화',meetingHW:'모뎀 모듈, 5G 안테나',meetingSW:'IMS 스택',meetingStructure:'표준 폼팩터',dueDate:'2026-07-20',monitoringStart:'2026-08-01',monitoringEnd:'2026-09-01',monitoringFeedback:'',requester:'박지호',keyContacts:'강네트워크',requesterEmail:'jiho.park@kaongroup.com',stakeholderEmail:'network.kang@kaongroup.com',attachment:'260620_개발사업본부 샘플요청서_ConnectPro_영업3팀_박지호.xlsx'},
+  {id:4,corporation:'브로드밴드',salesDept:'BB영업1팀',salesManager:'최다영',operator:'SKT',modelName:'WiFi 7 Router Pro',year:2025,productGroup:'공유기',country:'한국',purpose:'B2C',quantity:4,status:'샘플 회수',feedbackDate:'2026-04-30',operatorFeedback:'테스트 완료. 양산 사양 확정.',isReturned:'회수',returnImpossibleReason:'',isOrdered:'수주',returnQuantity:4,requestName:'20260210_SKT_WiFi7Router_검증',meetingHW:'WiFi 7 메인보드, 안테나',meetingSW:'OpenWRT 23.x',meetingStructure:'ABS 케이스',dueDate:'2026-03-01',monitoringStart:'2026-03-15',monitoringEnd:'2026-04-30',monitoringFeedback:'WiFi 7 속도 달성. 최종 승인 완료.',requester:'최다영',keyContacts:'임검증, 한네트워크',requesterEmail:'dayoung.choi@kaongroup.com',stakeholderEmail:'verify.lim@kaongroup.com',attachment:'260210_개발사업본부 샘플요청서_WiFi7Router_BB영업1팀_최다영.xlsx'},
+  {id:5,corporation:'브로드밴드',salesDept:'BB영업2팀',salesManager:'정승현',operator:'KT',modelName:'5G CPE Pro',year:2026,productGroup:'CPE',country:'미국',purpose:'B2B',quantity:2,status:'샘플 준비 중',feedbackDate:'2026-07-31',operatorFeedback:'FCC 인증 준비 중.',isReturned:'미회수',returnImpossibleReason:'',isOrdered:'검토중',returnQuantity:0,requestName:'20260401_KT_5GCPE_FCC인증',meetingHW:'5G 모뎀, RF 프런트엔드',meetingSW:'QMI 드라이버',meetingStructure:'금속 케이스',dueDate:'2026-07-10',monitoringStart:'2026-07-31',monitoringEnd:'2026-08-31',monitoringFeedback:'FCC 항목 준비 중.',requester:'정승현',keyContacts:'김FCC, 오인증',requesterEmail:'seunghyun.jung@kaongroup.com',stakeholderEmail:'fcc.kim@kaongroup.com',attachment:'260401_개발사업본부 샘플요청서_5GCPE_BB영업2팀_정승현.xlsx'},
+  {id:6,corporation:'브로드밴드',salesDept:'BB영업1팀',salesManager:'강민서',operator:'LG유플러스',modelName:'HomeHub X1',year:2026,productGroup:'홈게이트웨이',country:'일본',purpose:'B2C',quantity:3,status:'샘플 요청',feedbackDate:'2026-09-01',operatorFeedback:'',isReturned:'-',returnImpossibleReason:'',isOrdered:'-',returnQuantity:0,requestName:'20260620_LGU_HomeHub_일본출시',meetingHW:'홈게이트웨이 PCB, VDSL',meetingSW:'TR-369 USP',meetingStructure:'콤팩트 케이스',dueDate:'2026-08-01',monitoringStart:'2026-09-01',monitoringEnd:'2026-10-01',monitoringFeedback:'',requester:'강민서',keyContacts:'田中, 이일본영업',requesterEmail:'minseo.kang@kaongroup.com',stakeholderEmail:'japan.lee@kaongroup.com',attachment:'260620_개발사업본부 샘플요청서_HomeHubX1_BB영업1팀_강민서.xlsx'},
+];
+
+const STORAGE_KEY='kaon_samples_v1';
+function loadSamples(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
+function saveSamples(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(samples));}catch(e){}}
+function normalizeYear(v){
+  if(v===undefined||v===null||String(v).trim()==='')return 2026;
+  const digits=String(v).replace(/[^0-9]/g,'');
+  const n=parseInt(digits,10);
+  return Number.isFinite(n)&&n>0?n:2026;
+}
+{const saved=loadSamples();if(saved&&saved.length)samples=saved;}
+// 과거에 잘못 저장된 year 값(공백/한글 혼입 등)을 정수로 정규화하고, 변경된 경우 즉시 저장
+{
+  let changed=false;
+  samples.forEach(s=>{const nv=normalizeYear(s.year);if(s.year!==nv){s.year=nv;changed=true;}});
+  if(changed)saveSamples();
+}
+
+let state={view:'dashboard',dashCorp:'그룹',dashYear:'all',masterCorp:'그룹',boardCorp:'그룹',boardMode:'table',selectedId:null,panelOpen:false,panelMode:'detail',listPanelData:null,statusFilter:null,editData:{},selectedRows:new Set(),paTab:'arch',editCell:null,masterSearch:''};
+
+// ── helpers ──────────────────────────────────────────────
+const AVC=['#3b82f6','#8b5cf6','#16a34a','#f97316','#ec4899','#0891b2'];
+function avBg(n){let h=0;for(const c of n)h+=c.charCodeAt(0);return AVC[h%AVC.length];}
+function avatar(n){return `<div class="av" style="background:${avBg(n)}">${n.charAt(0)}</div>`;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function badge(st){const s=STATUS_MAP[st]||{cls:'',icon:'?'};return `<span class="badge ${s.cls}">${s.icon} ${st}</span>`;}
+function corpBadge(c){const cls=c==='그룹'?'cb-g':'cb-bb';return `<span class="corp-badge ${cls}">${c==='그룹'?'🏢':'📡'} ${c}</span>`;}
+function relDate(ds,done){if(!ds)return '<span class="rd-d">-</span>';if(done)return `<span class="rd-d">${ds}</span>`;const d=new Date(ds),diff=Math.round((d-TODAY)/86400000);if(diff<0)return `<span class="rd rd-u">⚠ ${Math.abs(diff)}일 초과</span>`;if(diff<=3)return `<span class="rd rd-u">🔴 D-${diff}</span>`;if(diff<=7)return `<span class="rd rd-w">⚡ ${diff}일 후</span>`;return `<span class="rd rd-n">${diff}일 후</span>`;}
+function nextId(){return samples.length?Math.max(...samples.map(s=>s.id))+1:1;}
+function filteredBy(corp,stFilter){let d=corp==='all'?samples:samples.filter(s=>s.corporation===corp);if(stFilter)d=d.filter(s=>s.status===stFilter);return d;}
+function showToast(msg,type='info',dur=3000){const ico={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};const el=document.createElement('div');el.className=`toast t-${type[0]}`;el.innerHTML=`<span class="t-ico">${ico[type]}</span><span>${msg}</span>`;document.getElementById('tc').appendChild(el);setTimeout(()=>{el.style.transition='opacity .3s';el.style.opacity='0';setTimeout(()=>el.remove(),300);},dur);}
+function closeModal(){document.getElementById('mc').innerHTML='';}
+
+// ── SVG Charts ────────────────────────────────────────────
+// items: [{label,value,color,filterKey,filterVal}] — filterKey/filterVal used for click-through
+function svgHBar(items,opts={}){
+  const{barH=20,gap=7,labelW=110}=opts;
+  if(!items.length)return '<div style="color:var(--tm);font-size:12px;padding:8px 0">데이터 없음</div>';
+  const maxV=Math.max(...items.map(i=>i.value),1),barW=200,totalW=labelW+barW+36,h=items.length*(barH+gap)+gap;
+  let s=`<svg width="100%" height="${h}" viewBox="0 0 ${totalW} ${h}" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg">`;
+  items.forEach((it,i)=>{
+    const y=gap+i*(barH+gap),bw=Math.max((it.value/maxV)*barW,it.value>0?3:0);
+    const click=it.filterKey?`onclick="showChartList('${esc(it.filterKey)}','${esc(it.filterVal)}','${esc(it.label)}')" style="cursor:pointer"`:'';
+    s+=`<g ${click}>`;
+    s+=`<text x="${labelW-6}" y="${y+barH/2+4}" text-anchor="end" font-size="11" fill="#4a5568">${esc(it.label)}</text>`;
+    s+=`<rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" fill="#f0f4f8" rx="3"/>`;
+    if(bw>0)s+=`<rect x="${labelW}" y="${y}" width="${bw}" height="${barH}" fill="${it.color||'#3b82f6'}" rx="3"/>`;
+    s+=`<rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" fill="transparent"/>`;
+    s+=`<text x="${labelW+barW+6}" y="${y+barH/2+4}" font-size="11" font-weight="700" fill="#0f172a">${it.value}</text>`;
+    s+=`</g>`;
+  });
+  return s+'</svg>';
+}
+
+function svgStackedBar(items,filterKey='operator'){
+  if(!items.length)return '<div style="color:var(--tm);font-size:12px;padding:8px 0">데이터 없음</div>';
+  const barH=22,gap=8,labelW=120,barW=220,totalW=labelW+barW+40;
+  const maxT=Math.max(...items.map(d=>STATUSES.reduce((a,st)=>a+(d.counts[st]||0),0)),1);
+  const h=items.length*(barH+gap)+gap;
+  let s=`<svg width="100%" height="${h}" viewBox="0 0 ${totalW} ${h}" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg">`;
+  items.forEach((it,i)=>{
+    const y=gap+i*(barH+gap),total=STATUSES.reduce((a,st)=>a+(it.counts[st]||0),0);
+    s+=`<text x="${labelW-6}" y="${y+barH/2+4}" text-anchor="end" font-size="11" fill="#4a5568">${esc(it.label)}</text>`;
+    s+=`<rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" fill="#f0f4f8" rx="3"/>`;
+    let x=labelW;
+    STATUSES.forEach(st=>{const n=it.counts[st]||0;if(!n)return;const w=(n/maxT)*barW;
+      s+=`<rect x="${x}" y="${y}" width="${w}" height="${barH}" fill="${STATUS_MAP[st].color}" rx="2" style="cursor:pointer" onclick="showChartList('${filterKey}','${esc(it.label)}','${esc(it.label)}','status','${st}')"/>`;
+      if(w>16)s+=`<text x="${x+w/2}" y="${y+barH/2+4}" text-anchor="middle" font-size="10" fill="white" font-weight="600" style="pointer-events:none">${n}</text>`;
+      x+=w;
+    });
+    s+=`<text x="${labelW+barW+8}" y="${y+barH/2+4}" font-size="11" fill="#94a3b8" style="cursor:pointer" onclick="showChartList('${filterKey}','${esc(it.label)}','${esc(it.label)}')">${total}</text>`;
+  });
+  return s+'</svg>';
+}
+
+// 도넛 차트: items=[{label,value,color,filterKey,filterVal}]
+function svgDonut(items,opts={}){
+  const{size=160,thickness=26}=opts;
+  const total=items.reduce((a,i)=>a+i.value,0);
+  if(!items.length||total===0)return '<div style="color:var(--tm);font-size:12px;padding:8px 0">데이터 없음</div>';
+  const r=size/2,inner=r-thickness,cx=r,cy=r;
+  let ang=-90,paths='';
+  items.forEach(it=>{
+    const frac=it.value/total;
+    const sweep=Math.min(frac*360,359.99); // 360도 완전원이면 시작/끝점이 같아져 path가 깨지므로 약간 줄임
+    const a1=ang*Math.PI/180,a2=(ang+sweep)*Math.PI/180;
+    const x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+    const ix1=cx+inner*Math.cos(a1),iy1=cy+inner*Math.sin(a1),ix2=cx+inner*Math.cos(a2),iy2=cy+inner*Math.sin(a2);
+    const large=sweep>180?1:0;
+    const d=`M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${inner},${inner} 0 ${large} 0 ${ix1},${iy1} Z`;
+    const click=it.onClick?`onclick="${esc(it.onClick)}" style="cursor:pointer"`:it.filterKey?`onclick="showChartList('${esc(it.filterKey)}','${esc(it.filterVal)}','${esc(it.label)}')" style="cursor:pointer"`:'';
+    paths+=`<path d="${d}" fill="${it.color}" ${click}><title>${esc(it.label)}: ${it.value}</title></path>`;
+    ang+=sweep;
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    ${paths}
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">${total}</text>
+    <text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="10" fill="#94a3b8">총 건수</text>
+  </svg>`;
+}
+
+// 트렌드 라인 차트: items=[{label, value}]
+function svgTrendLine(items,opts={}){
+  if(!items.length)return '<div style="color:var(--tm);font-size:12px;padding:8px 0">데이터 없음</div>';
+  const w=320,h=110,padL=28,padB=20,padT=10,padR=10;
+  const innerW=w-padL-padR,innerH=h-padT-padB;
+  const maxV=Math.max(...items.map(i=>i.value),1);
+  const stepX=items.length>1?innerW/(items.length-1):0;
+  const pts=items.map((it,i)=>{const x=padL+i*stepX,y=padT+innerH-(it.value/maxV)*innerH;return {x,y,...it};});
+  const linePath=pts.map((p,i)=>`${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
+  const areaPath=`${linePath} L${pts[pts.length-1].x},${padT+innerH} L${pts[0].x},${padT+innerH} Z`;
+  let s=`<svg width="100%" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+  s+=`<line x1="${padL}" y1="${padT+innerH}" x2="${w-padR}" y2="${padT+innerH}" stroke="#e2e8f0"/>`;
+  s+=`<path d="${areaPath}" fill="#3b82f618"/>`;
+  s+=`<path d="${linePath}" fill="none" stroke="#3b82f6" stroke-width="2"/>`;
+  pts.forEach(p=>{
+    s+=`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#3b82f6" style="cursor:pointer" onclick="showChartList('year','${esc(p.label)}','${esc(p.label)}년')"/>`;
+    s+=`<text x="${p.x}" y="${h-4}" text-anchor="middle" font-size="9.5" fill="#94a3b8">${esc(p.label)}</text>`;
+    s+=`<text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">${p.value}</text>`;
+  });
+  return s+'</svg>';
+}
+
+// ── Dashboard ─────────────────────────────────────────────
+function kpi(data){
+  return {
+    total:data.length,
+    inProg:data.filter(s=>s.status==='샘플 요청'||s.status==='샘플 준비 중'||s.status==='샘플 발송').length,
+    thisMonth:data.filter(s=>{if(!s.feedbackDate)return false;const d=new Date(s.feedbackDate);return d.getFullYear()===TODAY.getFullYear()&&d.getMonth()===TODAY.getMonth();}).length,
+    overdue:data.filter(s=>{if(s.status==='샘플 회수')return false;if(!s.dueDate)return false;return new Date(s.dueDate)<TODAY;}).length,
+  };
+}
+
+function buildDashboard(){
+  const dc=state.dashCorp;
+  const dy=state.dashYear;
+  let data=filteredBy(dc,null);
+  if(dy!=='all')data=data.filter(s=>String(s.year).trim()===String(dy).trim());
+  const k=kpi(data);
+
+  const allYears=[...new Set(samples.map(s=>s.year))].sort((a,b)=>a-b);
+
+  const yearTabs=`<div class="corp-tabs" style="margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--ts);font-weight:700;padding-bottom:8px">📅 연도</span>
+      <button class="ct${dy==='all'?' active':''}" onclick="state.dashYear='all';render()">전체</button>
+      ${allYears.map(y=>`<button class="ct${String(dy)===String(y)?' active':''}" onclick="state.dashYear='${y}';render()">${y}년</button>`).join('')}
+    </div>
+  </div>`;
+
+  const corpTabs=`<div class="corp-tabs" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div style="display:flex">${['그룹','브로드밴드'].map(c=>`<button class="ct${dc===c?' active':''}" onclick="state.dashCorp='${c}';render()">${c==='그룹'?'🏢 그룹':'📡 브로드밴드'}</button>`).join('')}</div>
+  </div>`;
+
+  const kpiH=[{ico:'📦',bg:'#eff6ff',v:k.total,l:'전체 샘플 수'},{ico:'🔄',bg:'#fff7ed',v:k.inProg,l:'진행 중인 샘플'},{ico:'📅',bg:'#f5f3ff',v:k.thisMonth,l:'이번 달 피드백 예정'},{ico:'⚠️',bg:'#fef2f2',v:k.overdue,l:'기한 초과 건수'}]
+    .map(c=>`<div class="kpi-card"><div class="kpi-ico" style="background:${c.bg}">${c.ico}</div><div><div class="kpi-v">${c.v}</div><div class="kpi-l">${c.l}</div></div></div>`).join('');
+
+  // 상태별 도넛
+  const statusCounts=STATUSES.map(st=>({label:st,value:data.filter(s=>s.status===st).length,color:STATUS_MAP[st].color,filterKey:'status',filterVal:st}));
+  const statusDonut=svgDonut(statusCounts.filter(i=>i.value>0),{size:130});
+  const statusLegend=statusCounts.map(it=>`<div class="leg-item" style="cursor:pointer" onclick="showChartList('status','${it.filterVal}','${STATUS_MAP[it.filterVal].icon} ${it.filterVal}')"><div class="leg-dot" style="background:${it.color}"></div>${STATUS_MAP[it.filterVal].icon} ${it.label} (${it.value})</div>`).join('');
+
+  // 사업자 연속성: 작년 대비 올해 신규/유지/이탈 사업자 구분
+  const contYears=allYears.slice().sort((a,b)=>a-b);
+  const latestYear=contYears.length?contYears[contYears.length-1]:null;
+  const prevYear=latestYear!==null?contYears.filter(y=>y<latestYear).pop():null;
+  const corpAll=filteredBy(dc,null);
+  let continuitySection='';
+  if(latestYear!==null&&prevYear!==undefined&&prevYear!==null){
+    const opsLatest=new Set(corpAll.filter(s=>s.year===latestYear).map(s=>s.operator));
+    const opsPrev=new Set(corpAll.filter(s=>s.year===prevYear).map(s=>s.operator));
+    const newOps=[...opsLatest].filter(o=>!opsPrev.has(o));
+    const keepOps=[...opsLatest].filter(o=>opsPrev.has(o));
+    const churnOps=[...opsPrev].filter(o=>!opsLatest.has(o));
+    const contItems=[
+      {label:'신규',value:newOps.length,color:'#16a34a',kind:'new'},
+      {label:'유지',value:keepOps.length,color:'#3b82f6',kind:'keep'},
+      {label:'이탈',value:churnOps.length,color:'#dc2626',kind:'churn'}
+    ];
+    contItems.forEach(it=>it.onClick=`showContinuityList('${it.kind}')`);
+    window._contData={new:newOps,keep:keepOps,churn:churnOps,latestYear,prevYear};
+    const contLegend=contItems.map(it=>`<div class="leg-item" style="cursor:pointer" onclick="showContinuityList('${it.kind}')"><div class="leg-dot" style="background:${it.color}"></div>${it.label} (${it.value})</div>`).join('');
+    continuitySection=`<div class="chart-card">
+      <div class="chart-title">🔁 사업자 연속성 (${prevYear}→${latestYear})</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+        ${svgDonut(contItems.filter(i=>i.value>0),{size:130})}
+        <div class="legend" style="flex-direction:column;align-items:flex-start;margin-top:0">${contLegend}</div>
+      </div>
+    </div>`;
+  }else{
+    continuitySection=`<div class="chart-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div class="chart-title" style="align-self:flex-start">🔁 사업자 연속성</div>
+      <div class="empty" style="padding:20px 0">비교할 연도 데이터가 부족합니다</div>
+    </div>`;
+  }
+
+  // 사업자별 수량 합계 (상태 구분 없이 quantity 합산, 상위 3개 사업자 색상 강조)
+  const opQty={};data.forEach(s=>{opQty[s.operator]=(opQty[s.operator]||0)+(Number(s.quantity)||0);});
+  const opSorted=Object.entries(opQty).sort((a,b)=>b[1]-a[1]);
+  const TOP_COLOR='#f59e0b',REST_COLOR='#94a3b8';
+  const opItems=opSorted.map(([op,qty],i)=>({label:op,value:qty,color:i<3?TOP_COLOR:REST_COLOR,filterKey:'operator',filterVal:op}));
+  const opChart=svgHBar(opItems,{barH:22,gap:9});
+  const opLegendBar=`<div class="leg-item"><div class="leg-dot" style="background:${TOP_COLOR}"></div>수량 상위 3개 사업자</div><div class="leg-item"><div class="leg-dot" style="background:${REST_COLOR}"></div>그 외 사업자</div>`;
+
+  // 칩셋(그룹) / 제품군·국가(브로드밴드) 바
+  const chipMap={};data.filter(s=>s.corporation==='그룹').forEach(s=>{if(s.chip)chipMap[s.chip]=(chipMap[s.chip]||0)+(Number(s.quantity)||0);});
+  const chipMax=Math.max(...Object.values(chipMap),0);
+  const chipItems=Object.entries(chipMap).map(([c,n])=>({label:c,value:n,color:n===chipMax&&n>0?'#f59e0b':'#8b5cf6',filterKey:'chip',filterVal:c}));
+
+  const pgMap={};data.filter(s=>s.corporation==='브로드밴드').forEach(s=>{if(s.productGroup)pgMap[s.productGroup]=(pgMap[s.productGroup]||0)+(Number(s.quantity)||0);});
+  const pgMax=Math.max(...Object.values(pgMap),0);
+  const pgItems=Object.entries(pgMap).map(([g,n])=>({label:g,value:n,color:n===pgMax&&n>0?'#f59e0b':'#6d28d9',filterKey:'productGroup',filterVal:g}));
+
+  // 연도별 트렌드 (현재 법인 필터 기준, 연도 필터는 무시하고 전체 연도 추세를 보여줌)
+  const trendBase=filteredBy(dc,null);
+  const trendItems=allYears.slice().sort((a,b)=>a-b).map(y=>({label:String(y),value:trendBase.filter(s=>s.year===y).length}));
+
+  const sideCharts=[chipItems.length?`<div class="chart-card"><div class="chart-title">🏢 칩셋별 현황 (그룹)</div>${svgHBar(chipItems)}</div>`:'',
+    pgItems.length?`<div class="chart-card"><div class="chart-title">📡 제품군별 현황 (브로드밴드)</div>${svgHBar(pgItems)}</div>`:''].filter(Boolean).join('');
+
+  return `${yearTabs}${corpTabs}
+    <div class="sec-divider"><span>📊 샘플 운영 현황</span></div>
+    <div class="kpi-grid">${kpiH}</div>
+    <div class="chart-row-3" style="margin-bottom:12px">
+      <div class="chart-card">
+        <div class="chart-title">샘플 진행 상태</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+          ${statusDonut}
+          <div class="legend" style="flex-direction:column;align-items:flex-start;margin-top:0">${statusLegend}</div>
+        </div>
+      </div>
+      ${continuitySection}
+      <div class="chart-card">
+        <div class="chart-title">📈 연도별 샘플 추이 (${dc})</div>
+        ${svgTrendLine(trendItems)}
+      </div>
+    </div>
+    <div class="chart-row" style="margin-bottom:12px">
+      <div class="chart-card"><div class="chart-title">사업자별 샘플 수량</div><div class="chart-scroll" style="max-height:280px;overflow-y:auto;padding-right:4px">${opChart}</div><div class="legend">${opLegendBar}</div></div>
+      ${sideCharts?`<div style="display:flex;flex-direction:column;gap:12px">${sideCharts}</div>`:'<div></div>'}
+    </div>
+    ${analyticsSection(dc,data,allYears)}`;
+}
+
+// ── 심층 분석 차트 헬퍼 ───────────────────────────────────
+// 100% 누적 가로 바(전환율 시각화). segs=[{label,value,color}], 클릭 시 showChartList
+function svgPctBar(rows,opts={}){
+  // rows=[{label, segs:[{key,val,color,name}], onSeg(seg)->onclick string}]
+  if(!rows.length)return '<div style="color:var(--tm);font-size:12px;padding:8px 0">데이터 없음</div>';
+  const barH=opts.barH||24,gap=opts.gap||10,labelW=opts.labelW||96,barW=230,totalW=labelW+barW+44;
+  const h=rows.length*(barH+gap)+gap;
+  let s=`<svg width="100%" height="${h}" viewBox="0 0 ${totalW} ${h}" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg">`;
+  rows.forEach((row,i)=>{
+    const y=gap+i*(barH+gap);
+    const total=row.segs.reduce((a,sg)=>a+sg.val,0)||1;
+    s+=`<text x="${labelW-6}" y="${y+barH/2+4}" text-anchor="end" font-size="11" fill="#4a5568">${esc(row.label)}</text>`;
+    s+=`<rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" fill="#f0f4f8" rx="3"/>`;
+    let x=labelW;
+    row.segs.forEach(sg=>{
+      if(!sg.val)return;const w=(sg.val/total)*barW;
+      const click=row.onSeg?`style="cursor:pointer" onclick="${row.onSeg(sg)}"`:'';
+      s+=`<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${barH}" fill="${sg.color}" ${click}><title>${esc(sg.name)}: ${sg.val}</title></rect>`;
+      if(w>20)s+=`<text x="${(x+w/2).toFixed(1)}" y="${y+barH/2+4}" text-anchor="middle" font-size="10" fill="#fff" font-weight="700" style="pointer-events:none">${sg.val}</text>`;
+      x+=w;
+    });
+    s+=`<text x="${labelW+barW+8}" y="${y+barH/2+4}" font-size="11" fill="#94a3b8">${total}</text>`;
+  });
+  return s+'</svg>';
+}
+
+// 다중 시리즈 라인(연도별 수주율 % 등). series=[{name,color,pts:[{label,value}]}]
+function svgMultiLine(series,opts={}){
+  const labels=opts.labels||[];
+  if(!series.length||!labels.length)return '<div style="color:var(--tm);font-size:12px;padding:8px 0">데이터 없음</div>';
+  const w=opts.w||340,h=opts.h||150,padL=34,padB=22,padT=14,padR=12;
+  const innerW=w-padL-padR,innerH=h-padT-padB;
+  const maxV=opts.maxV||Math.max(...series.flatMap(se=>se.pts.map(p=>p.value)),1);
+  const stepX=labels.length>1?innerW/(labels.length-1):0;
+  let s=`<svg width="100%" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+  // y축 격자(0,50,100 또는 maxV기준 3분할)
+  [0,0.5,1].forEach(f=>{const gy=padT+innerH-f*innerH;s+=`<line x1="${padL}" y1="${gy}" x2="${w-padR}" y2="${gy}" stroke="#eef2f6"/>`;s+=`<text x="${padL-5}" y="${gy+3}" text-anchor="end" font-size="8.5" fill="#94a3b8">${Math.round(f*maxV)}${opts.unit||''}</text>`;});
+  labels.forEach((lb,i)=>{const x=padL+i*stepX;s+=`<text x="${x}" y="${h-6}" text-anchor="middle" font-size="9.5" fill="#94a3b8">${esc(lb)}</text>`;});
+  series.forEach(se=>{
+    const pts=se.pts.map((p,i)=>({x:padL+i*stepX,y:padT+innerH-(p.value/maxV)*innerH,...p}));
+    const line=pts.map((p,i)=>`${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    s+=`<path d="${line}" fill="none" stroke="${se.color}" stroke-width="2.2"/>`;
+    pts.forEach(p=>{s+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${se.color}"><title>${esc(se.name)} ${esc(p.label)}: ${p.value}${opts.unit||''}</title></circle>`;s+=`<text x="${p.x.toFixed(1)}" y="${(p.y-7).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="${se.color}">${p.value}${opts.unit||''}</text>`;});
+  });
+  return s+'</svg>';
+}
+
+// ── 심층 분석 페이지 ──────────────────────────────────────
+// 실제 엑셀의 수주여부/회수여부/부서/국가 차원을 분석. 그룹=칩셋·제조사, 브로드밴드=국가·제품군
+// ── 수주·회수 심층 분석 섹션 (현황 대시보드에 통합) ──
+// dc: 법인, data: 대시보드에서 법인+연도 필터링된 데이터, allYears: 전체 연도
+function analyticsSection(dc,data,allYears){
+  // 수주여부 카테고리 색상(실제 데이터: 프로젝트 수주/영업 활동 중/미수주/RFP 중/제출 전 등)
+  const ORDER_COLORS={'프로젝트 수주':'#16a34a','영업 활동 중':'#3b82f6','RFP 중':'#8b5cf6','미수주':'#dc2626','제출 전':'#94a3b8','검토중':'#f59e0b','미결정':'#cbd5e1','수주':'#16a34a','-':'#cbd5e1'};
+  const oc=v=>ORDER_COLORS[v]||'#64748b';
+  const orderVals=[...new Set(data.map(s=>String(s.isOrdered||'-')))].sort((a,b)=>{const ord=['프로젝트 수주','수주','영업 활동 중','RFP 중','검토중','미결정','제출 전','미수주','-'];return (ord.indexOf(a)+1||99)-(ord.indexOf(b)+1||99);});
+
+  // ── KPI: 수주 성과 ──
+  const won=data.filter(s=>String(s.isOrdered)==='프로젝트 수주'||String(s.isOrdered)==='수주').length;
+  const active=data.filter(s=>String(s.isOrdered)==='영업 활동 중'||String(s.isOrdered)==='RFP 중'||String(s.isOrdered)==='검토중').length;
+  const lost=data.filter(s=>String(s.isOrdered)==='미수주').length;
+  const decided=won+lost; // 결정된 건(수주+미수주) 기준 전환율
+  const winRate=decided?Math.round(won/decided*100):0;
+  const totalQty=data.reduce((a,s)=>a+(Number(s.quantity)||0),0);
+  const retQty=data.reduce((a,s)=>a+(Number(s.returnQuantity)||0),0);
+  const recoverableLost=data.filter(s=>String(s.isReturned)==='회수 불가'||String(s.isReturned)==='미회수').length;
+  const kpis=[
+    {ico:'🏆',bg:'#f0fdf4',v:won,l:'프로젝트 수주 건수'},
+    {ico:'🎯',bg:'#f0fdf4',v:winRate+'%',l:'수주 전환율 (수주/결정완료)'},
+    {ico:'🔥',bg:'#eff6ff',v:active,l:'영업 진행 중 (활동·RFP)'},
+    {ico:'📦',bg:'#fff7ed',v:`${retQty}/${totalQty}`,l:'회수/발송 수량 (대)'},
+  ].map(c=>`<div class="kpi-card"><div class="kpi-ico" style="background:${c.bg}">${c.ico}</div><div><div class="kpi-v">${c.v}</div><div class="kpi-l">${c.l}</div></div></div>`).join('');
+
+  // ── 1) 수주여부 도넛 ──
+  const orderDonut=orderVals.map(v=>({label:v,value:data.filter(s=>String(s.isOrdered||'-')===v).length,color:oc(v),filterKey:'isOrdered',filterVal:v})).filter(i=>i.value>0);
+  const orderLegend=orderDonut.map(it=>`<div class="leg-item" style="cursor:pointer" onclick="showChartList('isOrdered','${esc(it.label)}','수주: ${esc(it.label)}')"><div class="leg-dot" style="background:${it.color}"></div>${esc(it.label)} (${it.value})</div>`).join('');
+
+  // ── 2) 부서별 수주여부 100% 누적 바(부서 성과) ──
+  const depts=[...new Set(data.map(s=>s.salesDept))].filter(Boolean);
+  const deptRows=depts.map(d=>{
+    const sub=data.filter(s=>s.salesDept===d);
+    return {label:d, _n:sub.length,
+      segs:orderVals.map(v=>({key:v,name:v,val:sub.filter(s=>String(s.isOrdered||'-')===v).length,color:oc(v)})).filter(sg=>sg.val>0),
+      onSeg:sg=>`showChartList('salesDept','${esc(d)}','${esc(d)}','isOrdered','${esc(sg.key)}')`};
+  }).sort((a,b)=>b._n-a._n);
+  const deptBar=svgPctBar(deptRows,{labelW:96});
+
+  // ── 3) 회수 현황 도넛 ──
+  const RET_COLORS={'회수 완료':'#16a34a','회수 예정':'#f59e0b','미회수':'#3b82f6','회수 불가':'#dc2626','제출 전':'#94a3b8','일부 수량(2대) 회수 완료':'#84cc16','일부 수량(10대) 회수 완료':'#84cc16'};
+  const rc=v=>RET_COLORS[v]||'#64748b';
+  const retVals=[...new Set(data.map(s=>String(s.isReturned||'-')))].filter(v=>v&&v!=='-');
+  const retDonut=retVals.map(v=>({label:v,value:data.filter(s=>String(s.isReturned)===v).length,color:rc(v),filterKey:'isReturned',filterVal:v})).filter(i=>i.value>0).sort((a,b)=>b.value-a.value);
+  const retLegend=retDonut.map(it=>`<div class="leg-item" style="cursor:pointer" onclick="showChartList('isReturned','${esc(it.label)}','회수: ${esc(it.label)}')"><div class="leg-dot" style="background:${it.color}"></div>${esc(it.label)} (${it.value})</div>`).join('');
+
+  // ── 4) 연도별 수주 전환율 추이(라인) — 연도 필터와 무관하게 전체 추세 ──
+  const trendBase=filteredBy(dc,null);
+  const winSeries=[{name:'수주 전환율',color:'#16a34a',pts:allYears.map(y=>{const sub=trendBase.filter(s=>s.year===y);const w=sub.filter(s=>String(s.isOrdered)==='프로젝트 수주'||String(s.isOrdered)==='수주').length;const l=sub.filter(s=>String(s.isOrdered)==='미수주').length;const dec=w+l;return {label:String(y),value:dec?Math.round(w/dec*100):0};})}];
+  const winTrend=svgMultiLine(winSeries,{labels:allYears.map(String),maxV:100,unit:'%',w:340,h:150});
+
+  // ── 5) 차원별 분포(그룹=칩셋·제조사 / 브로드밴드=국가·제품군), 수주 강조 ──
+  let dim1Title,dim1Bar,dim2Title,dim2Bar;
+  if(dc==='그룹'){
+    const chipQty={};data.forEach(s=>{if(s.chip)chipQty[s.chip]=(chipQty[s.chip]||0)+(Number(s.quantity)||0);});
+    const cMax=Math.max(...Object.values(chipQty),0);
+    dim1Title='🔌 칩셋별 발송 수량';
+    dim1Bar=svgHBar(Object.entries(chipQty).sort((a,b)=>b[1]-a[1]).map(([c,n])=>({label:c,value:n,color:n===cMax&&n>0?'#f59e0b':'#8b5cf6',filterKey:'chip',filterVal:c})),{labelW:120});
+    const mkQty={};data.forEach(s=>{if(s.manufacturer)mkQty[s.manufacturer]=(mkQty[s.manufacturer]||0)+(Number(s.quantity)||0);});
+    const mMax=Math.max(...Object.values(mkQty),0);
+    dim2Title='🏭 제조사별 발송 수량';
+    dim2Bar=svgHBar(Object.entries(mkQty).sort((a,b)=>b[1]-a[1]).map(([c,n])=>({label:c,value:n,color:n===mMax&&n>0?'#f59e0b':'#3b82f6',filterKey:'manufacturer',filterVal:c})),{labelW:90});
+  }else{
+    const ctMap={};data.forEach(s=>{const k=(s.country||'').trim();if(k)ctMap[k]=(ctMap[k]||0)+1;});
+    const ctMax=Math.max(...Object.values(ctMap),0);
+    dim1Title='🌍 국가별 샘플 건수 (상위 12)';
+    dim1Bar=svgHBar(Object.entries(ctMap).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([c,n])=>({label:c,value:n,color:n===ctMax&&n>0?'#f59e0b':'#6d28d9',filterKey:'country',filterVal:c})),{labelW:110});
+    const pgQty={};data.forEach(s=>{const k=(s.productGroup||'').trim().toUpperCase();if(k)pgQty[k]=(pgQty[k]||0)+(Number(s.quantity)||0);});
+    const pMax=Math.max(...Object.values(pgQty),0);
+    dim2Title='📡 제품군별 발송 수량';
+    dim2Bar=svgHBar(Object.entries(pgQty).sort((a,b)=>b[1]-a[1]).map(([c,n])=>({label:c,value:n,color:n===pMax&&n>0?'#f59e0b':'#3b82f6'})),{labelW:70});
+  }
+
+  // ── 6) 사업자별 수주여부 누적(상위 10 사업자) ──
+  const opCount={};data.forEach(s=>{opCount[s.operator]=(opCount[s.operator]||0)+1;});
+  const topOps=Object.entries(opCount).sort((a,b)=>b[1]-a[1]).slice(0,10).map(e=>e[0]);
+  const opRows=topOps.map(op=>{
+    const sub=data.filter(s=>s.operator===op);
+    return {label:op, segs:orderVals.map(v=>({key:v,name:v,val:sub.filter(s=>String(s.isOrdered||'-')===v).length,color:oc(v)})).filter(sg=>sg.val>0),
+      onSeg:sg=>`showChartList('operator','${esc(op)}','${esc(op)}','isOrdered','${esc(sg.key)}')`};
+  });
+  const opBar=svgPctBar(opRows,{labelW:110});
+
+  const orderLegendShared=orderVals.map(v=>`<div class="leg-item"><div class="leg-dot" style="background:${oc(v)}"></div>${esc(v)}</div>`).join('');
+
+  return `
+    <div class="sec-divider"><span>📈 수주 · 회수 심층 분석</span></div>
+    <div class="kpi-grid">${kpis}</div>
+    <div class="chart-row-3" style="margin-bottom:12px">
+      <div class="chart-card">
+        <div class="chart-title">🎯 수주여부 분포</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px">
+          ${svgDonut(orderDonut,{size:130})}
+          <div class="legend" style="flex-direction:column;align-items:flex-start;margin-top:0">${orderLegend}</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">♻️ 회수 현황</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px">
+          ${svgDonut(retDonut,{size:130})}
+          <div class="legend" style="flex-direction:column;align-items:flex-start;margin-top:0">${retLegend}</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📈 연도별 수주 전환율 (%)</div>
+        ${winTrend}
+        <div style="font-size:10.5px;color:var(--tm);margin-top:4px">* 전환율 = 프로젝트 수주 / (수주+미수주). 미결정 건 제외 · 전체 연도 기준</div>
+      </div>
+    </div>
+    <div class="chart-row" style="margin-bottom:12px">
+      <div class="chart-card">
+        <div class="chart-title">🏢 부서별 수주 성과 (건수 누적)</div>
+        <div class="chart-scroll" style="max-height:300px;overflow-y:auto;padding-right:4px">${deptBar}</div>
+        <div class="legend">${orderLegendShared}</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🤝 주요 사업자별 수주 현황 (상위 10)</div>
+        <div class="chart-scroll" style="max-height:300px;overflow-y:auto;padding-right:4px">${opBar}</div>
+        <div class="legend">${orderLegendShared}</div>
+      </div>
+    </div>
+    <div class="chart-row" style="margin-bottom:12px">
+      <div class="chart-card"><div class="chart-title">${dim1Title}</div><div class="chart-scroll" style="max-height:300px;overflow-y:auto;padding-right:4px">${dim1Bar}</div></div>
+      <div class="chart-card"><div class="chart-title">${dim2Title}</div>${dim2Bar}</div>
+    </div>`;
+}
+
+// ── Chart click-through: 슬라이드 패널에 필터링된 목록 표시 ──
+function showContinuityList(kind){
+  const cd=window._contData;if(!cd)return;
+  const opsSet=kind==='new'?cd.new:kind==='keep'?cd.keep:cd.churn;
+  const labelMap={new:`신규 사업자 (${cd.prevYear}→${cd.latestYear})`,keep:`유지 사업자 (${cd.prevYear}, ${cd.latestYear} 모두 진행)`,churn:`이탈 사업자 (${cd.prevYear}년만 진행)`};
+  // 이탈 사업자는 이전 연도 데이터를, 신규/유지는 최신 연도 데이터를 기준으로 보여줌
+  const targetYear=kind==='churn'?cd.prevYear:cd.latestYear;
+  let data=filteredBy(state.dashCorp,null).filter(s=>s.year===targetYear&&opsSet.includes(s.operator));
+  state.listPanelData={label:labelMap[kind],items:data};
+  state.panelMode='list';
+  state.panelOpen=true;
+  render();
+}
+function showChartList(filterKey,filterVal,label,extraKey,extraVal){
+  const corp=state.dashCorp;
+  let data=filteredBy(corp,null);
+  if(state.dashYear!=='all')data=data.filter(s=>String(s.year).trim()===String(state.dashYear).trim());
+  if(filterKey)data=data.filter(s=>String(s[filterKey])===String(filterVal));
+  if(extraKey)data=data.filter(s=>String(s[extraKey])===String(extraVal));
+  state.listPanelData={label,items:data};
+  state.panelMode='list';
+  state.panelOpen=true;
+  render();
+}
+
+function buildListPanel(){
+  const {label,items}=state.listPanelData||{label:'',items:[]};
+  document.getElementById('panelBody').innerHTML=`
+    <div class="sp-hdr">
+      <div class="sp-ht"><div class="sp-rn">📋 ${esc(label)} <span style="color:var(--tm);font-weight:600">(${items.length}건)</span></div><button class="sp-cl" onclick="closePanel()">×</button></div>
+    </div>
+    <div class="sp-sec" style="padding-bottom:20px">
+      ${items.length?items.map(s=>{
+        const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+        return `<div class="k-card" style="margin-bottom:8px" onclick="openPanel(${s.id})">
+          <div class="k-title">${esc(nm)}</div>
+          <div class="k-meta">
+            <span style="display:flex;align-items:center;gap:6px">${corpBadge(s.corporation)} ${esc(s.operator)} · ${esc(s.year)}년</span>
+            <span>${badge(s.status)}</span>
+          </div>
+        </div>`;
+      }).join(''):'<div class="empty">해당 조건의 샘플이 없습니다</div>'}
+    </div>`;
+  document.getElementById('panelFoot').innerHTML=`<button class="btn btn-o" onclick="closePanel()">닫기</button>`;
+}
+
+// ── Master Table ──────────────────────────────────────────
+function masterCols(corp){
+  if(corp==='그룹') return [
+    {k:'salesDept',l:'영업부서',w:70,type:'text'},{k:'salesManager',l:'영업 담당자',w:75,type:'text'},{k:'operator',l:'사업자',w:90,type:'text'},{k:'projectName',l:'샘플 프로젝트명',w:130,type:'text'},
+    {k:'year',l:'년도',w:50,type:'number'},{k:'os',l:'OS',w:60,type:'text'},{k:'manufacturer',l:'제조사',w:70,type:'text'},{k:'chip',l:'Chip',w:120,type:'text'},{k:'quantity',l:'수량',w:45,type:'number'},
+    {k:'status',l:'진행 상태',w:110,filter:true,type:'select',opts:STATUSES},{k:'feedbackDate',l:'피드백 예정일자',w:105,type:'date'},{k:'operatorFeedback',l:'사업자 피드백 및 발송 이후 진행사항',w:180,tr:true,type:'text'},
+    {k:'isReturned',l:'회수여부',w:70,type:'select',opts:['-','미회수','회수']},{k:'returnImpossibleReason',l:'회수 불가사유',w:120,tr:true,type:'text'},{k:'isOrdered',l:'수주여부',w:70,type:'select',opts:['-','검토중','미결정','수주']},{k:'returnQuantity',l:'회수 수량',w:65,type:'number'},
+  ];
+  return [
+    {k:'salesDept',l:'영업부서',w:70,type:'text'},{k:'salesManager',l:'영업 담당자',w:75,type:'text'},{k:'operator',l:'사업자',w:90,type:'text'},{k:'modelName',l:'모델명',w:120,type:'text'},
+    {k:'year',l:'년도',w:50,type:'number'},{k:'productGroup',l:'제품군',w:80,type:'text'},{k:'country',l:'국가',w:60,type:'text'},{k:'purpose',l:'용도',w:60,type:'text'},{k:'quantity',l:'수량',w:45,type:'number'},
+    {k:'status',l:'진행 상태',w:110,filter:true,type:'select',opts:STATUSES},{k:'feedbackDate',l:'피드백 예정일자',w:105,type:'date'},{k:'operatorFeedback',l:'사업자 피드백 및 발송 이후 진행사항',w:180,tr:true,type:'text'},
+    {k:'isReturned',l:'회수여부',w:70,type:'select',opts:['-','미회수','회수']},{k:'returnImpossibleReason',l:'회수 불가사유',w:120,tr:true,type:'text'},{k:'isOrdered',l:'수주여부',w:70,type:'select',opts:['-','검토중','미결정','수주']},{k:'returnQuantity',l:'회수 수량',w:65,type:'number'},
+  ];
+}
+
+function buildMasterRows(data,cols){
+  return data.map(s=>{
+    const sel=state.selectedRows.has(s.id);
+    const cells=cols.map(c=>{
+      const isEditing=state.editCell&&state.editCell.id===s.id&&state.editCell.key===c.k;
+      if(isEditing){
+        let input;
+        if(c.type==='select'){
+          input=`<select class="cell-edit" id="ce_${s.id}_${c.k}" onclick="event.stopPropagation()" onblur="commitCellEdit(${s.id},'${c.k}')" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')cancelCellEdit();" autofocus>${c.opts.map(o=>`<option value="${esc(o)}" ${s[c.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+        }else{
+          const itype=c.type==='number'?'number':c.type==='date'?'date':'text';
+          input=`<input class="cell-edit" type="${itype}" id="ce_${s.id}_${c.k}" value="${esc(s[c.k]??'')}" onclick="event.stopPropagation()" onblur="commitCellEdit(${s.id},'${c.k}')" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')cancelCellEdit();">`;
+        }
+        return `<td style="padding:2px" onclick="event.stopPropagation()">${input}</td>`;
+      }
+      let v=s[c.k]??'';
+      if(c.k==='status')v=badge(s.status);
+      else if(c.k==='feedbackDate')v=`<span style="font-size:11px">${s.feedbackDate||'-'}</span>`;
+      else v=c.tr?`<span class="td-tr" title="${esc(v)}">${esc(v)||'-'}</span>`:esc(v)||'-';
+      return `<td class="td-editable" onclick="event.stopPropagation();startCellEdit(${s.id},'${c.k}')">${v}</td>`;
+    }).join('');
+    const detailBtn=`<td style="text-align:center" onclick="event.stopPropagation();openPanel(${s.id})"><button style="background:#1e3a5f;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;white-space:nowrap">📋 상세</button></td>`;
+    return `<tr class="${sel?'row-sel':''}" style="cursor:pointer" onclick="openPanel(${s.id})"><td class="chk-c" onclick="event.stopPropagation()"><input type="checkbox" ${sel?'checked':''} onchange="toggleRow(${s.id},this.checked)"></td>${detailBtn}${cells}</tr>`;
+  }).join('');
+}
+function getMasterFilteredData(){
+  const corp=state.masterCorp;
+  const cols=masterCols(corp);
+  let data=filteredBy(corp,state.statusFilter);
+  const q=(state.masterSearch||'').trim().toLowerCase();
+  if(q)data=data.filter(s=>cols.some(c=>String(s[c.k]??'').toLowerCase().includes(q)));
+  return{data,cols};
+}
+// 검색어 입력 시 tbody만 갱신 (search input 엘리먼트는 절대 다시 그리지 않아 한글 조합이 끊기지 않음)
+function refreshMasterTbody(){
+  const{data,cols}=getMasterFilteredData();
+  const tbody=document.getElementById('masterTbody');
+  if(tbody)tbody.innerHTML=buildMasterRows(data,cols)||'<tr><td colspan="18" class="empty">데이터가 없습니다</td></tr>';
+  const clearWrap=document.getElementById('masterSearchClearWrap');
+  if(clearWrap)clearWrap.innerHTML=state.masterSearch?`<button class="btn btn-o btn-sm" onclick="state.masterSearch='';document.getElementById('masterSearchInput').value='';refreshMasterTbody();">✕</button>`:'';
+}
+function buildMasterTable(){
+  const{data,cols}=getMasterFilteredData();
+  const allChk=data.length>0&&data.every(s=>state.selectedRows.has(s.id));
+
+  const corpTabsH=`<div class="corp-tabs" style="justify-content:space-between;align-items:center">
+    <div style="display:flex">${['그룹','브로드밴드'].map(c=>`<button class="ct${state.masterCorp===c?' active':''}" onclick="state.masterCorp='${c}';state.statusFilter=null;state.selectedRows=new Set();render()">${c==='그룹'?'🏢 그룹':'📡 브로드밴드'}</button>`).join('')}</div>
+    <div style="display:flex;align-items:center;gap:6px;padding-bottom:8px;position:relative">
+      <span style="position:absolute;left:9px;font-size:12px;color:var(--tm);pointer-events:none">🔍</span>
+      <input type="text" class="fi" id="masterSearchInput" placeholder="담당자, 부서, 사업자 등 검색" value="${esc(state.masterSearch)}" style="width:220px;padding:6px 10px 6px 28px" oninput="state.masterSearch=this.value;refreshMasterTbody();">
+      <span id="masterSearchClearWrap">${state.masterSearch?`<button class="btn btn-o btn-sm" onclick="state.masterSearch='';document.getElementById('masterSearchInput').value='';refreshMasterTbody();">✕</button>`:''}</span>
+    </div>
+  </div>`;
+
+  const grpHeader=`<tr class="gh"><th></th><th></th><th colspan="9">기본 정보</th><th colspan="7">영업 확인 사항</th></tr>`;
+  const colHeader=`<tr><th class="chk-c"><input type="checkbox" ${allChk?'checked':''} onchange="toggleAll(this.checked)" onclick="event.stopPropagation()"></th><th style="min-width:60px;text-align:center">상세</th>`+
+    cols.map(c=>{
+      const inner=c.filter?`<div class="fth">${c.l}<div class="fw"><button class="fbtn" onclick="event.stopPropagation();toggleFM()">▼</button><div class="fm" id="sfm">${['전체',...STATUSES].map(st=>`<div class="fmi${st==='전체'&&!state.statusFilter?' sel':st===state.statusFilter?' sel':''}" onclick="event.stopPropagation();setFilter('${st==='전체'?'':st}')">${st}</div>`).join('')}</div></div></div>`:c.l;
+      return `<th style="min-width:${c.w}px">${inner}</th>`;
+    }).join('')+'</tr>';
+
+  const rows=buildMasterRows(data,cols);
+
+  return corpTabsH+`<div class="tw"><div class="tscroll"><table><thead>${grpHeader}${colHeader}</thead><tbody id="masterTbody">${rows||'<tr><td colspan="18" class="empty">데이터가 없습니다</td></tr>'}</tbody></table></div></div>`;
+}
+
+// ── Board ─────────────────────────────────────────────────
+function buildBoardTable(){
+  const corp=state.boardCorp;
+  const data=filteredBy(corp,null);
+  const firstLabel=corp==='그룹'?'샘플 요청':'모델명';
+  const firstKey=corp==='그룹'?'requestName':'modelName';
+  const cols=[{k:firstKey,l:firstLabel},{k:'meetingHW',l:'회의 내용'},{k:'dueDate',l:'준비 기한'},{k:'status',l:'진행 상태'},{k:'feedbackDate',l:'피드백 예정일자'},{k:'monitoringFeedback',l:'★사업자 모니터링'},{k:'requester',l:'요청자'},{k:'keyContacts',l:'주요 관련자'}];
+  const thead=`<tr>`+cols.map(c=>`<th>${c.l}</th>`).join('')+'</tr>';
+  const rows=data.map(s=>{
+    const done=s.status==='샘플 회수';
+    const cells=cols.map(c=>{
+      let v;
+      if(c.k==='status')v=badge(s.status);
+      else if(c.k==='dueDate')v=relDate(s.dueDate,done);
+      else if(c.k==='feedbackDate')v=`<span style="font-size:11px">${s.feedbackDate||'-'}</span>`;
+      else if(c.k==='requester')v=`<div class="av-row">${avatar(s.requester)}<span>${esc(s.requester)}</span></div>`;
+      else if(c.k===firstKey)v=`<span style="font-weight:700;font-size:12px">${esc(s[c.k])}</span>`;
+      else v=`<span class="td-tr" style="max-width:130px" title="${esc(s[c.k]||'')}">${esc(s[c.k])||'-'}</span>`;
+      return `<td>${v}</td>`;
+    }).join('');
+    return `<tr onclick="openPanel(${s.id})">${cells}</tr>`;
+  }).join('');
+  return `<div class="tw"><div class="tscroll"><table><thead>${thead}</thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+function buildKanban(){
+  const corp=state.boardCorp;
+  const allData=filteredBy('all',null);
+  const kCols=[{status:'샘플 요청',border:'#3b82f6'},{status:'샘플 준비 중',border:'#f97316'},{status:'샘플 발송',border:'#8b5cf6'},{status:'샘플 회수',border:'#16a34a'}];
+  return `<div class="kanban">${kCols.map(col=>{
+    const cfg=STATUS_MAP[col.status];
+    const items=allData.filter(s=>s.status===col.status);
+    const cards=items.map(s=>{
+      const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+      return `<div class="k-card" onclick="openPanel(${s.id})">
+        <div class="k-title">${esc(nm)}</div>
+        <div class="k-meta">
+          <span style="display:flex;align-items:center;gap:6px">${corpBadge(s.corporation)} ${esc(s.operator)}</span>
+          <span>${relDate(s.dueDate,false)}</span>
+        </div>
+      </div>`;
+    }).join('')||'<div style="font-size:11px;color:var(--tm);padding:4px 0">항목 없음</div>';
+    return `<div class="k-col"><div class="k-hdr" style="border-top:3px solid ${col.border}"><div class="k-hl">${cfg.icon} ${col.status}<span class="k-cnt">${items.length}</span></div></div><div class="k-body">${cards}</div></div>`;
+  }).join('')}</div>`;
+}
+
+function buildBoard(){
+  const corpTabsH=`<div class="corp-tabs">
+    ${['그룹','브로드밴드'].map(c=>`<button class="ct${state.boardCorp===c?' active':''}" onclick="state.boardCorp='${c}';render()">${c==='그룹'?'🏢 그룹':'📡 브로드밴드'}</button>`).join('')}
+    <span style="margin-left:auto;color:var(--tm);font-size:11px;align-self:center;padding-right:4px">칸반: 법인 구분 없이 전체 표시</span>
+  </div>`;
+  return corpTabsH+(state.boardMode==='kanban'?buildKanban():buildBoardTable());
+}
+
+// ── Panel ─────────────────────────────────────────────────
+function buildPanel(s){
+  if(!s)return;
+  const ed=state.editData;
+  const stOpts=STATUSES.map(st=>{const cfg=STATUS_MAP[st];const sel=(ed.status||s.status)===st;return `<div class="st-o${sel?' sel':''}" style="background:${sel?cfg.color+'18':'transparent'};color:${cfg.color}" onclick="setEditStatus('${st}')">${cfg.icon} ${st}</div>`;}).join('');
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  document.getElementById('panelBody').innerHTML=`
+    <div class="sp-hdr">
+      <div class="sp-ht"><div class="sp-rn">① ${esc(s.requestName||nm)}</div><button class="sp-cl" onclick="closePanel()">×</button></div>
+      <div class="sp-sub">${corpBadge(s.corporation)} ${esc(s.operator)} · ${esc(s.salesManager)} · ${esc(s.year)}년</div>
+    </div>
+    <div class="sp-sec"><div class="sp-st">② 회의 내용 준비사항</div>
+      <div class="fr"><div class="fg"><label class="fl">HW</label><input class="fi" id="e_hw" value="${esc(s.meetingHW)}"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">SW</label><input class="fi" id="e_sw" value="${esc(s.meetingSW)}"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">기구</label><input class="fi" id="e_st" value="${esc(s.meetingStructure)}"></div></div>
+    </div>
+    <div class="sp-sec"><div class="sp-st">③ 진행 상태</div><div class="st-opts">${stOpts}</div></div>
+    <div class="sp-sec"><div class="sp-st">④ ⑤ 기한 / 피드백 예정일</div>
+      <div class="fr"><div class="fg"><label class="fl">준비 기한</label><input type="date" class="fi" id="e_pd" value="${esc(s.dueDate)}"></div><div class="fg"><label class="fl">피드백 예정일자</label><input type="date" class="fi" id="e_fd" value="${esc(s.feedbackDate)}"></div></div>
+    </div>
+    <div class="sp-sec"><div class="sp-st">⑥ 사업자 모니터링 기간</div>
+      <div class="fr"><div class="fg"><label class="fl">시작일</label><input type="date" class="fi" id="e_ms" value="${esc(s.monitoringStart)}"></div><div class="fg"><label class="fl">종료일</label><input type="date" class="fi" id="e_me" value="${esc(s.monitoringEnd)}"></div></div>
+    </div>
+    <div class="sp-sec"><div class="sp-st">⑦ ★사업자 모니터링 (피드백)</div><textarea class="fta" id="e_mf" rows="4">${esc(s.monitoringFeedback)}</textarea></div>
+    <div class="sp-sec"><div class="sp-st">⑧ 요청자 / 주요 관련자</div>
+      <div class="fr"><div class="fg"><label class="fl">요청자</label><input class="fi" id="e_rq" value="${esc(s.requester)}"></div><div class="fg"><label class="fl">주요 관련자</label><input class="fi" id="e_kc" value="${esc(s.keyContacts)}"></div></div>
+      <div class="fr" style="margin-top:6px"><div class="fg"><label class="fl">요청자 이메일</label><input class="fi" id="e_re" type="email" value="${esc(s.requesterEmail||'')}"></div><div class="fg"><label class="fl">주요 관련자 이메일</label><input class="fi" id="e_se" type="email" value="${esc(s.stakeholderEmail||'')}"></div></div>
+    </div>
+    <div class="sp-sec"><div class="sp-st">⑨ 첨부 파일</div>
+      <div class="file-item"><span style="font-size:15px">📎</span><span>${esc(s.attachment)}</span></div>
+      <div style="font-size:10.5px;color:var(--tm);margin-top:5px">형식: 26xxxx_개발사업본부 샘플요청서_샘플명_팀_이름.xlsx</div>
+    </div>
+    <div class="sp-sec" style="padding-bottom:20px">
+      <div class="sp-st">📨 Outlook 연동 (방안 A)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-o btn-sm" onclick="openMailto(${s.id})">📧 Outlook 메일</button>
+        <button class="btn btn-o btn-sm" onclick="openOutlookWeb(${s.id})">🌐 웹 작성창</button>
+        <button class="btn btn-o btn-sm" onclick="downloadICS(${s.id})">📅 일정(.ics) D-3·D-1</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--tm);margin-top:6px">요청자·관련자 이메일(⑧)을 저장 후 사용하세요</div>
+    </div>`;
+  document.getElementById('panelFoot').innerHTML=`
+    <button class="btn btn-r btn-sm" onclick="openSingleDeleteConfirm(${s.id})">🗑 삭제</button>
+    <div style="display:flex;gap:7px"><button class="btn btn-o" onclick="closePanel()">닫기</button>
+    <button class="btn btn-p" onclick="savePanel(${s.id})">저장</button></div>`;
+}
+
+// ── Power Automate Guide ──────────────────────────────────
+function buildPAGuide(){
+  const tabs=[{id:'arch',l:'🏗 아키텍처'},{id:'flows',l:'⚡ 플로우 구성'},{id:'sp',l:'📋 SharePoint 설정'},{id:'email',l:'✉ 이메일 템플릿'},{id:'check',l:'☑ 체크리스트'}];
+  const tabH=`<div class="g-tabs">${tabs.map(t=>`<button class="g-tab${state.paTab===t.id?' active':''}" onclick="state.paTab='${t.id}';render()">${t.l}</button>`).join('')}</div>`;
+
+  let content='';
+  if(state.paTab==='arch'){
+    content=`
+      <div class="g-sec"><div class="g-sh">📐 전체 시스템 아키텍처</div><div class="g-bd">
+        <div class="flow-wrap">
+          <div class="fb" style="background:#dbeafe;border-color:#93c5fd">React 앱<br><small style="color:#1d4ed8;font-weight:400">샘플 등록/수정</small></div>
+          <div class="fa">↓</div>
+          <div class="fb" style="background:#dcfce7;border-color:#86efac">SharePoint List<br><small style="color:#166534;font-weight:400">그룹/브로드밴드 데이터</small></div>
+          <div class="fa">↓</div>
+          <div class="fb" style="background:#fef3c7;border-color:#fcd34d">Power Automate<br><small style="color:#92400e;font-weight:400">변경 감지 트리거</small></div>
+          <div class="fa">↓</div>
+          <div class="fb" style="background:#ede9fe;border-color:#c4b5fd">조건 분기<br><small style="color:#5b21b6;font-weight:400">법인 구분</small></div>
+          <div class="fa">↓</div>
+          <div class="fb" style="background:#fce7f3;border-color:#f9a8d4">Outlook 이메일<br><small style="color:#9d174d;font-weight:400">담당자 수신</small></div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;font-weight:700;color:var(--ts);margin-bottom:8px">알림 트리거 시나리오</div>
+          <table class="sc-tbl">
+            <thead><tr><th>시나리오</th><th>트리거 조건</th><th>수신자</th></tr></thead>
+            <tbody>
+              <tr><td>🆕 새 샘플 요청 등록</td><td>SharePoint 새 항목 추가</td><td>영업 담당자, 주요 관련자</td></tr>
+              <tr><td>⚡ 준비 기한 D-3 알림</td><td>준비 기한 = 오늘 + 3일</td><td>영업 담당자</td></tr>
+              <tr><td>🔴 준비 기한 D-1 알림</td><td>준비 기한 = 오늘 + 1일</td><td>영업 담당자, 요청자</td></tr>
+              <tr><td>🔄 진행 상태 변경</td><td>status 컬럼 값 변경</td><td>요청자, 주요 관련자</td></tr>
+              <tr><td>📅 피드백 예정일 당일</td><td>feedbackDate = 오늘</td><td>영업 담당자</td></tr>
+              <tr><td>⚠️ 기한 초과</td><td>dueDate &lt; 오늘 AND status ≠ '샘플 회수'</td><td>영업 담당자, 팀장(CC)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div></div>
+      <div class="g-sec"><div class="g-sh">💻 STEP A — React → SharePoint 연동 (MSAL)</div><div class="g-bd">
+        <div style="font-size:12px;color:var(--ts);margin-bottom:10px">Microsoft Graph API + MSAL 인증으로 React 앱 저장 시 SharePoint List에 자동 동기화</div>
+        <div class="code-block">// 1. npm install @azure/msal-react @azure/msal-browser
+// 2. Azure AD 앱 등록 후 권한: Sites.ReadWrite.All
+
+const msalConfig = {
+  auth: {
+    clientId: process.env.REACT_APP_CLIENT_ID,
+    authority: \`https://login.microsoftonline.com/\${process.env.REACT_APP_TENANT_ID}\`,
+    redirectUri: window.location.origin,
+  }
+};
+
+// SharePoint List에 항목 추가
+async function syncToSharePoint(sampleData, accessToken) {
+  const siteId = 'YOUR_SITE_ID';
+  const listId = 'YOUR_LIST_ID';
+
+  const fields = {
+    Title: sampleData.projectName || sampleData.modelName,
+    Corporation: sampleData.corporation,
+    SalesDept: sampleData.salesDept,
+    SalesManager: sampleData.salesManager,
+    Operator: sampleData.operator,
+    Status: sampleData.status,
+    FeedbackDate: sampleData.feedbackDate,
+    DueDate: sampleData.dueDate,
+    Requester: sampleData.requester,
+    KeyContacts: sampleData.keyContacts,
+  };
+
+  await fetch(
+    \`https://graph.microsoft.com/v1.0/sites/\${siteId}/lists/\${listId}/items\`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': \`Bearer \${accessToken}\`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    }
+  );
+}</div>
+      </div></div>`;
+  }
+
+  if(state.paTab==='flows'){
+    content=`
+      <div class="g-sec"><div class="g-sh">⚡ 플로우 1 — 새 샘플 요청 등록 알림</div><div class="g-bd">
+        <div class="flow-wrap">
+          <div class="fb">트리거<br><small>항목이 만들어진 경우</small></div><div class="fa">→</div>
+          <div class="fb">변수 초기화<br><small>법인·샘플명·담당자 추출</small></div><div class="fa">→</div>
+          <div class="fb">조건 분기<br><small>그룹 / 브로드밴드</small></div><div class="fa">→</div>
+          <div class="fb" style="background:#fce7f3">Outlook 이메일 발송</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--ts);margin-top:10px"><strong>제목 형식:</strong> [샘플 요청] {법인} - {샘플명} 신규 등록</div>
+      </div></div>
+      <div class="g-sec"><div class="g-sh">⏰ 플로우 2 — D-3 / D-1 기한 알림 (매일 오전 9시)</div><div class="g-bd">
+        <div class="flow-wrap">
+          <div class="fb">되풀이 트리거<br><small>매일 09:00</small></div><div class="fa">→</div>
+          <div class="fb">SharePoint 항목 조회<br><small>필터: 준비기한 = 오늘+3일</small></div><div class="fa">→</div>
+          <div class="fb">Apply to Each</div><div class="fa">→</div>
+          <div class="fb" style="background:#fce7f3">Outlook 이메일 발송</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--ts);margin-top:8px">조건: <code style="background:#f1f5f9;padding:2px 5px;border-radius:3px">진행 상태 ≠ 샘플 회수</code></div>
+      </div></div>
+      <div class="g-sec"><div class="g-sh">🔄 플로우 3 — 진행 상태 변경 알림</div><div class="g-bd">
+        <div class="flow-wrap">
+          <div class="fb">트리거<br><small>항목이 수정된 경우</small></div><div class="fa">→</div>
+          <div class="fb">조건 확인<br><small>status 변경 여부</small></div><div class="fa">→</div>
+          <div class="fb" style="background:#fce7f3">Outlook 발송<br><small>이전상태 → 새상태</small></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--ts);margin-top:8px"><strong>제목:</strong> [상태 변경] {샘플명} 상태가 {이전} → {현재}로 업데이트되었습니다</div>
+      </div></div>
+      <div class="g-sec"><div class="g-sh">⚠️ 플로우 4 — 기한 초과 알림 (매일 오전 9시)</div><div class="g-bd">
+        <div style="font-size:11.5px;color:var(--ts);margin-bottom:8px">
+          조건: dueDate &lt; 오늘 AND status ≠ '샘플 회수'<br>
+          수신: 영업 담당자 + 팀장(CC)
+        </div>
+        <div class="flow-wrap">
+          <div class="fb">되풀이 09:00</div><div class="fa">→</div>
+          <div class="fb">기한 초과 항목 조회</div><div class="fa">→</div>
+          <div class="fb">Apply to Each</div><div class="fa">→</div>
+          <div class="fb" style="background:#fce7f3">긴급 이메일 발송</div>
+        </div>
+      </div></div>`;
+  }
+
+  if(state.paTab==='sp'){
+    content=`
+      <div class="g-sec"><div class="g-sh">📋 SharePoint List 컬럼 구성</div><div class="g-bd">
+        <div style="font-size:12px;font-weight:700;color:var(--ts);margin-bottom:8px">공통 컬럼 (그룹 + 브로드밴드)</div>
+        <table class="sc-tbl">
+          <thead><tr><th>컬럼명</th><th>SharePoint 형식</th><th>필수</th></tr></thead>
+          <tbody>
+            <tr><td>Corporation (법인 구분)</td><td>선택형: 그룹 / 브로드밴드</td><td>✅</td></tr>
+            <tr><td>SalesDept (영업부서)</td><td>한 줄 텍스트</td><td>✅</td></tr>
+            <tr><td>SalesManager (영업 담당자)</td><td>한 줄 텍스트</td><td>✅</td></tr>
+            <tr><td>Operator (사업자)</td><td>한 줄 텍스트</td><td>✅</td></tr>
+            <tr><td>Status (진행 상태)</td><td>선택형: 샘플 요청/샘플 준비 중/샘플 발송/샘플 회수</td><td>✅</td></tr>
+            <tr><td>FeedbackDate (피드백 예정일자)</td><td>날짜 및 시간</td><td></td></tr>
+            <tr><td>PrepDeadline (준비 기한)</td><td>날짜 및 시간</td><td></td></tr>
+            <tr><td>Requester (요청자)</td><td>한 줄 텍스트</td><td></td></tr>
+            <tr><td>KeyContacts (주요 관련자)</td><td>여러 줄 텍스트</td><td></td></tr>
+            <tr><td>ReturnQuantity (회수 수량)</td><td>숫자</td><td></td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:12px;font-weight:700;color:var(--ts);margin:12px 0 8px">그룹 고유 컬럼</div>
+        <table class="sc-tbl">
+          <thead><tr><th>컬럼명</th><th>형식</th></tr></thead>
+          <tbody>
+            <tr><td>ProjectName (샘플 프로젝트명)</td><td>한 줄 텍스트</td></tr>
+            <tr><td>OS</td><td>한 줄 텍스트</td></tr>
+            <tr><td>Manufacturer (제조사)</td><td>한 줄 텍스트</td></tr>
+            <tr><td>Chip</td><td>한 줄 텍스트</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:12px;font-weight:700;color:var(--ts);margin:12px 0 8px">브로드밴드 고유 컬럼</div>
+        <table class="sc-tbl">
+          <thead><tr><th>컬럼명</th><th>형식</th></tr></thead>
+          <tbody>
+            <tr><td>ModelName (모델명)</td><td>한 줄 텍스트</td></tr>
+            <tr><td>ProductGroup (제품군)</td><td>한 줄 텍스트</td></tr>
+            <tr><td>Country (국가)</td><td>한 줄 텍스트</td></tr>
+            <tr><td>Purpose (용도)</td><td>한 줄 텍스트</td></tr>
+          </tbody>
+        </table>
+      </div></div>`;
+  }
+
+  if(state.paTab==='email'){
+    content=`
+      <div class="g-sec"><div class="g-sh">✉ 그룹 법인 이메일 템플릿</div><div class="g-bd">
+        <div class="email-preview">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">제목: [샘플 요청] <span class="email-badge" style="background:#1e3a5f">🏢 그룹</span> - {샘플 프로젝트명} 신규 등록</div>
+          안녕하세요, {영업 담당자}님.<br><br>
+          새로운 샘플 요청이 등록되었습니다.<br>
+          <div style="background:#f8fafc;border-left:4px solid #1e3a5f;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;font-size:12px">
+            <strong>법인:</strong> 🏢 그룹<br>
+            <strong>사업자:</strong> {사업자}<br>
+            <strong>샘플 프로젝트명:</strong> {샘플 프로젝트명}<br>
+            <strong>OS / 제조사 / Chip:</strong> {OS} / {제조사} / {Chip}<br>
+            <strong>준비 기한:</strong> {준비 기한}<br>
+            <strong>진행 상태:</strong> <span class="email-badge" style="background:#f97316">🔄 샘플 준비 중</span><br>
+            <strong>요청자:</strong> {요청자}
+          </div>
+          샘플 관리 시스템에서 상세 내용을 확인해 주세요.
+        </div>
+      </div></div>
+      <div class="g-sec"><div class="g-sh">✉ 브로드밴드 법인 이메일 템플릿</div><div class="g-bd">
+        <div class="email-preview">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">제목: [샘플 요청] <span class="email-badge" style="background:#6d28d9">📡 브로드밴드</span> - {모델명} 신규 등록</div>
+          안녕하세요, {영업 담당자}님.<br><br>
+          새로운 샘플 요청이 등록되었습니다.<br>
+          <div style="background:#f8fafc;border-left:4px solid #6d28d9;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;font-size:12px">
+            <strong>법인:</strong> 📡 브로드밴드<br>
+            <strong>사업자:</strong> {사업자}<br>
+            <strong>모델명:</strong> {모델명}<br>
+            <strong>제품군 / 국가 / 용도:</strong> {제품군} / {국가} / {용도}<br>
+            <strong>준비 기한:</strong> {준비 기한}<br>
+            <strong>진행 상태:</strong> <span class="email-badge" style="background:#3b82f6">📝 샘플 요청</span><br>
+            <strong>요청자:</strong> {요청자}
+          </div>
+          샘플 관리 시스템에서 상세 내용을 확인해 주세요.
+        </div>
+      </div></div>`;
+  }
+
+  if(state.paTab==='check'){
+    const items=[
+      'Microsoft 365 라이선스 확인 (Power Automate 포함 플랜)',
+      'SharePoint 사이트 생성 및 샘플현황 List 컬럼 구성',
+      'Azure AD 앱 등록 (CLIENT_ID, TENANT_ID 발급)',
+      'React 앱 → SharePoint 연동 (MSAL 인증 설정 완료)',
+      '플로우 1: 신규 샘플 등록 알림 — 구성 및 테스트',
+      '플로우 2: D-3 / D-1 기한 알림 — 매일 되풀이 구성',
+      '플로우 3: 진행 상태 변경 알림 — 조건 분기 확인',
+      '플로우 4: 기한 초과 알림 — 팀장 CC 설정 확인',
+      '그룹 법인 이메일 본문 템플릿 (Chip/OS 정보 포함) 검증',
+      '브로드밴드 법인 이메일 본문 템플릿 (제품군/국가/용도) 검증',
+      '수신자 이메일 주소 동적 연결 확인',
+      '법인별 이메일 본문 조건 분기 테스트 실행',
+    ];
+    content=`<div class="g-sec"><div class="g-sh">☑ Power Automate 설정 체크리스트</div><div class="g-bd">
+      ${items.map((it,i)=>`<div class="cl-item"><input type="checkbox" id="cl${i}"><label for="cl${i}" style="font-size:12.5px;cursor:pointer">${it}</label></div>`).join('')}
+    </div></div>`;
+  }
+
+  return tabH+content;
+}
+
+// ── Render ────────────────────────────────────────────────
+function render(){
+  const views={dashboard:'🏠 현황 대시보드',master:'📊 샘플현황 리스트',board:'📋 샘플 준비현황',guide:'⚡ 자동알림 가이드'};
+  const v=state.view;
+  const sel=state.selectedRows.size;
+
+  let topR='';
+  if(v==='master'){topR=`<button class="btn btn-o btn-sm" onclick="openImport()">📂 엑셀 Import</button><button class="btn btn-o btn-sm" onclick="openExportModal()">📥 엑셀 Export${sel?` (${sel})`:''}</button>${sel?`<button class="btn btn-r btn-sm" onclick="openDeleteConfirm()">🗑 샘플 삭제 (${sel})</button>`:''}<button class="btn btn-p btn-sm" onclick="addSample()">+ 샘플 추가</button>`;}
+  if(v==='board'){topR=`<div class="vtog"><button class="vt${state.boardMode==='table'?' active':''}" onclick="state.boardMode='table';render()">≡ 테이블</button><button class="vt${state.boardMode==='kanban'?' active':''}" onclick="state.boardMode='kanban';render()">⊞ 칸반</button></div><button class="btn btn-p btn-sm" style="margin-left:6px" onclick="addSample()">+ 추가</button>`;}
+
+  let content='';
+  if(v==='dashboard')content=buildDashboard();
+  else if(v==='master')content=buildMasterTable();
+  else if(v==='board')content=buildBoard();
+  else content=buildPAGuide();
+
+  document.getElementById('root').innerHTML=`
+    <div class="app">
+      <nav class="sidebar">
+        <div class="sb-logo"><div class="sb-logo-main">샘플 운영 관리 시스템</div><div class="sb-logo-sub">그룹 + 브로드밴드</div></div>
+        <div class="sb-nav"><div class="sb-sec">메인 메뉴</div>
+          ${[{id:'dashboard',icon:'🏠',l:'현황 대시보드'},{id:'master',icon:'📊',l:'샘플현황 리스트'},{id:'board',icon:'📋',l:'샘플 준비현황'},{id:'guide',icon:'⚡',l:'자동알림 가이드'}]
+            .map(n=>`<div class="nav-item${v===n.id?' active':''}" onclick="setView('${n.id}')"><div class="ndot"></div>${n.icon} ${n.l}</div>`).join('')}
+        </div>
+        <div class="sb-foot">KAON Group · 영업본부<br>${TODAY.toLocaleDateString('ko-KR')}</div>
+      </nav>
+      <div class="main">
+        <div class="topbar">
+          <div class="topbar-l"><span class="topbar-title">${views[v]}</span><button style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--tm)">☆</button></div>
+          <div class="topbar-r">${topR}</div>
+        </div>
+        <div class="content">${content}</div>
+      </div>
+    </div>`;
+
+  const ov=document.getElementById('overlay'),sp=document.getElementById('slidePanel');
+  if(state.panelOpen){
+    ov.classList.add('open');sp.classList.add('open');
+    if(state.panelMode==='list'){buildListPanel();}
+    else{const s=samples.find(x=>x.id===state.selectedId);if(s)buildPanel(s);}
+  }
+  else{ov.classList.remove('open');sp.classList.remove('open');}
+}
+
+// ── Actions ───────────────────────────────────────────────
+function setView(v){state.view=v;state.statusFilter=null;state.selectedRows=new Set();render();}
+function openPanel(id){state.selectedId=id;state.panelOpen=true;state.panelMode='detail';state.editData={};const s=samples.find(x=>x.id===id);if(s)state.editData.status=s.status;render();}
+function closePanel(){state.panelOpen=false;state.selectedId=null;state.panelMode='detail';state.listPanelData=null;render();}
+function setEditStatus(st){state.editData.status=st;const s=samples.find(x=>x.id===state.selectedId);if(s)buildPanel(s);}
+function savePanel(id){
+  const idx=samples.findIndex(x=>x.id===id);if(idx<0)return;const s=samples[idx];
+  const g=k=>{const el=document.getElementById(k);return el?el.value:undefined;};
+  samples[idx]={...s,status:state.editData.status||s.status,meetingHW:g('e_hw')??s.meetingHW,meetingSW:g('e_sw')??s.meetingSW,meetingStructure:g('e_st')??s.meetingStructure,dueDate:g('e_pd')??s.dueDate,feedbackDate:g('e_fd')??s.feedbackDate,monitoringStart:g('e_ms')??s.monitoringStart,monitoringEnd:g('e_me')??s.monitoringEnd,monitoringFeedback:g('e_mf')??s.monitoringFeedback,requester:g('e_rq')??s.requester,keyContacts:g('e_kc')??s.keyContacts,requesterEmail:g('e_re')??s.requesterEmail,stakeholderEmail:g('e_se')??s.stakeholderEmail};
+  saveSamples();showToast('저장되었습니다','success');closePanel();
+}
+function addSample(){
+  const corp=state.view==='board'?state.boardCorp:state.masterCorp;
+  const id=nextId();
+  const base={id,corporation:corp,salesDept:'',salesManager:'',operator:'',year:2026,quantity:1,status:'샘플 요청',feedbackDate:'',operatorFeedback:'',isReturned:'-',returnImpossibleReason:'',isOrdered:'-',returnQuantity:0,requestName:`260626_Buyer_목적`,meetingHW:'',meetingSW:'',meetingStructure:'',dueDate:'',monitoringStart:'',monitoringEnd:'',monitoringFeedback:'',requester:'',keyContacts:'',attachment:`260626_개발사업본부 샘플요청서_샘플명_팀_이름.xlsx`};
+  base.requesterEmail='';base.stakeholderEmail='';
+  if(corp==='그룹')Object.assign(base,{projectName:'새 샘플 '+id,os:'',manufacturer:'',chip:''});
+  else Object.assign(base,{modelName:'새 모델 '+id,productGroup:'',country:'',purpose:''});
+  samples.push(base);saveSamples();openPanel(id);
+}
+function toggleAll(c){const d=filteredBy(state.masterCorp,state.statusFilter);if(c)d.forEach(s=>state.selectedRows.add(s.id));else d.forEach(s=>state.selectedRows.delete(s.id));render();}
+function toggleRow(id,c){if(c)state.selectedRows.add(id);else state.selectedRows.delete(id);render();}
+function startCellEdit(id,key){
+  state.editCell={id,key};
+  render();
+  const el=document.getElementById(`ce_${id}_${key}`);
+  if(el){el.focus();if(el.select)el.select();}
+}
+function cancelCellEdit(){state.editCell=null;render();}
+function commitCellEdit(id,key){
+  if(!state.editCell||state.editCell.id!==id||state.editCell.key!==key)return; // 이미 처리됨(중복 blur 방지)
+  const el=document.getElementById(`ce_${id}_${key}`);
+  if(!el){state.editCell=null;render();return;}
+  let val=el.value;
+  const idx=samples.findIndex(s=>s.id===id);
+  if(idx<0){state.editCell=null;render();return;}
+  if(key==='year')val=normalizeYear(val);
+  else if(key==='quantity'||key==='returnQuantity')val=parseInt(val,10)||0;
+  samples[idx][key]=val;
+  state.editCell=null;
+  saveSamples();
+  render();
+}
+function openSingleDeleteConfirm(id){
+  const s=samples.find(x=>x.id===id);if(!s)return;
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  document.getElementById('mc').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="max-width:400px">
+        <div class="mh"><div class="mt">🗑 샘플 삭제 확인</div><button class="mc" onclick="closeModal()">×</button></div>
+        <div class="mb">
+          <p style="font-size:12.5px;color:var(--ts)">다음 샘플을 삭제합니다. 이 작업은 되돌릴 수 없습니다.</p>
+          <div class="err-row" style="margin-top:10px"><span class="eb eb-e">삭제</span><span>${esc(s.operator)} · ${esc(nm)}</span></div>
+        </div>
+        <div class="mf"><button class="btn btn-o" onclick="closeModal()">취소</button><button class="btn btn-r" onclick="deleteSingleSample(${id})">삭제</button></div>
+      </div>
+    </div>`;
+}
+function deleteSingleSample(id){
+  samples=samples.filter(s=>s.id!==id);
+  state.selectedRows.delete(id);
+  saveSamples();closeModal();closePanel();showToast('삭제되었습니다','success');render();
+}
+function openDeleteConfirm(){
+  const ids=[...state.selectedRows];if(!ids.length)return;
+  const items=samples.filter(s=>ids.includes(s.id));
+  const rows=items.map(s=>{const nm=s.corporation==='그룹'?s.projectName:s.modelName;return `<div class="err-row"><span class="eb eb-e">삭제</span><span>${esc(s.operator)} · ${esc(nm)}</span></div>`;}).join('');
+  document.getElementById('mc').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="max-width:440px">
+        <div class="mh"><div class="mt">🗑 샘플 삭제 확인</div><button class="mc" onclick="closeModal()">×</button></div>
+        <div class="mb">
+          <p style="font-size:12.5px;color:var(--ts);margin-bottom:12px">선택한 <strong>${ids.length}건</strong>의 샘플을 삭제합니다. 이 작업은 되돌릴 수 없습니다.</p>
+          ${rows}
+        </div>
+        <div class="mf"><button class="btn btn-o" onclick="closeModal()">취소</button><button class="btn btn-r" onclick="deleteSamples()">삭제</button></div>
+      </div>
+    </div>`;
+}
+function deleteSamples(){
+  const ids=[...state.selectedRows];if(!ids.length)return;
+  samples=samples.filter(s=>!ids.includes(s.id));
+  state.selectedRows=new Set();
+  saveSamples();closeModal();showToast(`${ids.length}건 삭제되었습니다`,'success');render();
+}
+function toggleFM(){const m=document.getElementById('sfm');if(m)m.classList.toggle('open');}
+function setFilter(v){state.statusFilter=v||null;const m=document.getElementById('sfm');if(m)m.classList.remove('open');render();}
+document.addEventListener('click',e=>{if(!e.target.closest('.fw'))document.querySelectorAll('.fm.open').forEach(m=>m.classList.remove('open'));});
+
+// ── Outlook 연동 (방안 A) ─────────────────────────────────
+function _buildMailBody(s){
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  const typeInfo=s.corporation==='그룹'
+    ?`OS: ${s.os||'-'} / 제조사: ${s.manufacturer||'-'} / Chip: ${s.chip||'-'}`
+    :`제품군: ${s.productGroup||'-'} / 국가: ${s.country||'-'} / 용도: ${s.purpose||'-'}`;
+  return [
+    `[${s.corporation}] ${s.operator} — ${nm}`,
+    ``,
+    `■ 기본 정보`,
+    `법인: ${s.corporation}`,
+    `사업자: ${s.operator}`,
+    `샘플명: ${nm}`,
+    typeInfo,
+    `수량: ${s.quantity}`,
+    ``,
+    `■ 진행 현황`,
+    `상태: ${s.status}`,
+    `준비 기한: ${s.dueDate||'-'}`,
+    `피드백 예정일: ${s.feedbackDate||'-'}`,
+    `사업자 모니터링 기간: ${s.monitoringStart||'-'} ~ ${s.monitoringEnd||'-'}`,
+    ``,
+    `■ 준비사항`,
+    `HW: ${s.meetingHW||'-'}`,
+    `SW: ${s.meetingSW||'-'}`,
+    `기구: ${s.meetingStructure||'-'}`,
+    ``,
+    `■ 사업자 피드백`,
+    s.monitoringFeedback||'-',
+  ].join('\n');
+}
+
+function openMailto(id){
+  const s=samples.find(x=>x.id===id);if(!s)return;
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  const subj=encodeURIComponent(`[샘플 ${s.status}] ${s.corporation} - ${nm}`);
+  const body=encodeURIComponent(_buildMailBody(s));
+  const to=encodeURIComponent(s.requesterEmail||'');
+  const cc=encodeURIComponent(s.stakeholderEmail||'');
+  window.location.href=`mailto:${to}?cc=${cc}&subject=${subj}&body=${body}`;
+}
+
+function openOutlookWeb(id){
+  const s=samples.find(x=>x.id===id);if(!s)return;
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  const subj=encodeURIComponent(`[샘플 ${s.status}] ${s.corporation} - ${nm}`);
+  const body=encodeURIComponent(_buildMailBody(s));
+  const to=encodeURIComponent(s.requesterEmail||'');
+  const cc=encodeURIComponent(s.stakeholderEmail||'');
+  window.open(`https://outlook.office.com/mail/deeplink/compose?to=${to}&cc=${cc}&subject=${subj}&body=${body}`,'_blank');
+}
+
+function downloadICS(id){
+  const s=samples.find(x=>x.id===id);if(!s)return;
+  if(!s.dueDate){showToast('준비 기한(dueDate)을 먼저 입력하세요','warning');return;}
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  const [y,m,d]=s.dueDate.split('-');
+  const dtStamp=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const uid=`sample-${s.id}-${Date.now()}@kaongroup`;
+  const ics=[
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//KAON Sample Mgmt//KO',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART;VALUE=DATE:${y}${m}${d}`,
+    `DTEND;VALUE=DATE:${y}${m}${d}`,
+    `SUMMARY:[샘플 준비 기한] ${nm}`,
+    `DESCRIPTION:${_buildMailBody(s).replace(/\n/g,'\\n')}`,
+    'BEGIN:VALARM',
+    'TRIGGER:-P3D',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:D-3 알림: ${nm} 준비 기한 3일 전입니다`,
+    'END:VALARM',
+    'BEGIN:VALARM',
+    'TRIGGER:-P1D',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:D-1 알림: ${nm} 준비 기한 내일입니다`,
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`샘플준비기한_${nm.replace(/\s/g,'_')}_${s.dueDate}.ics`;
+  a.click();URL.revokeObjectURL(url);
+  showToast('📅 일정 파일 다운로드 완료 (D-3·D-1 알림 포함)','success');
+}
+
+// ── Excel Import ──────────────────────────────────────────
+function openImport(){document.getElementById('ifi').click();}
+
+// ── 날짜 4가지 형태 변환 (2단계 MD Step3) ─────────────────
+function parseExcelDate(value){
+  if(!value||String(value).trim()==='')return'';
+  if(typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value.trim()))return value.trim();
+  if(value instanceof Date&&!isNaN(value.getTime()))return value.toISOString().slice(0,10);
+  if(typeof value==='number'&&value>1000){try{const dt=XLSX.SSF.parse_date_code(value);if(dt)return`${dt.y}-${String(dt.m).padStart(2,'0')}-${String(dt.d).padStart(2,'0')}`;}catch(e){}}
+  if(typeof value==='string'){const p=new Date(value);if(!isNaN(p.getTime())){const y=p.getFullYear(),m=String(p.getMonth()+1).padStart(2,'0'),d=String(p.getDate()).padStart(2,'0');return`${y}-${m}-${d}`;}}
+  return String(value);
+}
+
+// ── 행 파싱 + 검증 (2단계 MD Step4-6) ────────────────────
+// 시그니처: parseRows(dataRows, headerRow, corp) — 호출자가 2행 헤더 분리 후 전달
+function parseRows(dataRows, headerRow, corp){
+  const valid=[],errors=[],warnings=[];
+
+  // GROUP_MAP / BB_MAP — 엑셀 헤더명 → JSON 필드명
+  const GROUP_MAP={'영업부서':'salesDept','영업 담당자':'salesManager','사업자':'operator','샘플 프로젝트명':'projectName','년도':'year','OS':'os','제조사':'manufacturer','Chip':'chip','수량':'quantity','진행 상태':'status','피드백 예정일자':'feedbackDate','사업자 피드백 및 발송 이후 진행사항':'operatorFeedback','회수여부':'isReturned','회수 불가사유':'returnImpossibleReason','수주여부':'isOrdered','회수 수량':'returnQuantity'};
+  const BB_MAP={'영업부서':'salesDept','영업 담당자':'salesManager','사업자':'operator','모델명':'modelName','년도':'year','제품군':'productGroup','국가':'country','용도':'purpose','수량':'quantity','진행 상태':'status','피드백 예정일자':'feedbackDate','사업자 피드백 및 발송 이후 진행사항':'operatorFeedback','회수여부':'isReturned','회수 불가사유':'returnImpossibleReason','수주여부':'isOrdered','회수 수량':'returnQuantity'};
+  const colMap=corp==='그룹'?GROUP_MAP:BB_MAP;
+
+  const GROUP_REQ=['영업부서','영업 담당자','사업자','샘플 프로젝트명','년도','OS','제조사','Chip','수량','진행 상태'];
+  const BB_REQ=['영업부서','영업 담당자','사업자','모델명','년도','제품군','국가','용도','수량','진행 상태'];
+  const requiredCols=corp==='그룹'?GROUP_REQ:BB_REQ;
+
+  // 헤더 정규화 (null/undefined 제외)
+  const hdr=headerRow.map(h=>String(h??'').trim());
+
+  dataRows.forEach((row,i)=>{
+    // 완전 빈 행 건너뜀
+    if(!row||row.every(cell=>cell===''||cell==null))return;
+    const excelRowNum=i+3; // 1행그룹헤더+2행컬럼헤더+1
+
+    // 헤더 기준으로 엑셀행 → record 객체 변환
+    const record={};
+    hdr.forEach((col,idx)=>{if(col)record[col]=row[idx]??'';});
+
+    let hasError=false;
+
+    // ① 필수 컬럼 누락 체크
+    requiredCols.forEach(col=>{
+      if(!record[col]||String(record[col]).trim()===''){
+        errors.push({row:excelRowNum,col,type:'필수 필드 누락'});hasError=true;
+      }
+    });
+
+    // ② 진행 상태 허용값 체크 (errors가 아닌 warnings에 추가)
+    const rawStatus=String(record['진행 상태']||'').trim();
+    if(rawStatus&&!STATUSES.includes(rawStatus)){
+      warnings.push({row:excelRowNum,col:'진행 상태',type:`"${rawStatus}" → "샘플 요청" 대체`});
+      record['진행 상태']='샘플 요청';
+    }
+
+    // ③ 날짜 변환 (피드백 예정일자)
+    if(record['피드백 예정일자']&&String(record['피드백 예정일자']).trim()!==''){
+      const converted=parseExcelDate(record['피드백 예정일자']);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(converted)){
+        errors.push({row:excelRowNum,col:'피드백 예정일자',type:'날짜 형식 오류'});
+        hasError=true;record['피드백 예정일자']='';
+      }else{record['피드백 예정일자']=converted;}
+    }
+
+    if(!hasError){
+      // ④ JSON 필드명으로 매핑 + 기본값 보완
+      const mapped={id:nextId()+valid.length,corporation:corp,requestName:'',meetingHW:'',meetingSW:'',meetingStructure:'',dueDate:'',monitoringStart:'',monitoringEnd:'',monitoringFeedback:'',requester:'',keyContacts:'',attachment:''};
+      Object.entries(colMap).forEach(([excelKey,jsonKey])=>{mapped[jsonKey]=record[excelKey]??'';});
+      mapped.year=normalizeYear(mapped.year);
+      if(mapped.quantity)mapped.quantity=parseInt(mapped.quantity)||1;
+      if(mapped.returnQuantity)mapped.returnQuantity=parseInt(mapped.returnQuantity)||0;
+      if(!mapped.status)mapped.status='샘플 요청';
+      valid.push(mapped);
+    }
+  });
+  return{valid,errors,warnings};
+}
+
+// ── 파일 선택 → 파싱 (2단계 MD Step2) ────────────────────
+function handleImportFile(e){
+  const file=e.target.files[0];if(!file)return;e.target.value='';
+  const ext=file.name.split('.').pop().toLowerCase();
+
+  if(ext==='csv'){
+    // CSV: 2행 헤더 구조 지원 (1행=그룹헤더, 2행=컬럼명, 3행~=데이터)
+    const r=new FileReader();
+    r.onload=ev=>{
+      const raw=ev.target.result.split('\n').map(l=>l.split(',').map(v=>v.trim().replace(/^"|"$/g,'')));
+      if(raw.length<3){showToast('데이터가 부족합니다 (최소 3행 필요)','error');return;}
+      const headerRow=raw[1];
+      const dataRows=raw.slice(2);
+      const corp=state.masterCorp;
+      const{valid,errors,warnings}=parseRows(dataRows,headerRow,corp);
+      showImportModal(valid,errors,warnings);
+    };
+    r.readAsText(file,'utf-8');
+    return;
+  }
+
+  if(ext!=='xlsx'&&ext!=='xls'){showToast('xlsx, xls, csv 파일만 지원합니다','error');return;}
+  if(window._xlsxUnavailable||typeof XLSX==='undefined'){showToast('SheetJS 로드 실패 — CSV 파일을 사용하거나 인터넷 연결 후 재시도하세요','error',5000);return;}
+
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      let allValid=[],allErrors=[],allWarnings=[];
+      const SHEET_CORP={'그룹':'그룹','브로드밴드':'브로드밴드'};
+
+      wb.SheetNames.forEach(sn=>{
+        const corp=SHEET_CORP[sn];
+        if(!corp){allWarnings.push({row:'-',col:sn,type:'알 수 없는 시트명 — 건너뜀'});return;}
+        const ws=wb.Sheets[sn];
+        // 2단계 MD 핵심: header:1 + defval:'' + raw:true (시리얼 숫자 보존 → parseExcelDate 변환)
+        const rawData=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+        if(rawData.length<3)return; // 헤더 2행 + 데이터 1행 미만
+
+        const headerRow=rawData[1];       // 2번째 행 = 실제 컬럼명
+        const dataRows=rawData.slice(2);  // 3번째 행~ = 데이터
+
+        const{valid,errors,warnings}=parseRows(dataRows,headerRow,corp);
+        allValid=allValid.concat(valid);
+        allErrors=allErrors.concat(errors);
+        allWarnings=allWarnings.concat(warnings);
+      });
+      showImportModal(allValid,allErrors,allWarnings);
+    }catch(err){showToast('파싱 오류: '+err.message,'error');}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+// ── Import 검토 모달 (오류/경고 분리, 3카드) ─────────────
+let _pendingImportRows=[];  // 전역 임시 저장 — onclick 인라인 JSON 탈출 문자 오류 방지
+function showImportModal(validRows,errors,warnings){
+  _pendingImportRows=validRows;  // 참조만 저장, 직렬화 불필요
+  const allIssues=[...errors.map(e=>({...e,kind:'오류'})),...warnings.map(w=>({...w,kind:'경고'}))];
+  const issueH=allIssues.length
+    ?allIssues.map(it=>`<div class="err-row"><span class="eb ${it.kind==='오류'?'eb-e':'eb-w'}">${it.kind}</span><span style="color:var(--tm);min-width:40px;font-size:11px">${it.row}행</span><span style="font-weight:600">${esc(it.col)}</span><span style="color:var(--ts);margin-left:6px">${esc(it.type)}</span></div>`).join('')
+    :'<div style="color:var(--s-done);font-size:12px;padding:8px 0">✅ 오류 없음</div>';
+  document.getElementById('mc').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="mh"><div class="mt">📂 Import 검토 결과</div><button class="mc" onclick="closeModal()">×</button></div>
+        <div class="mb">
+          <div style="display:flex;gap:10px;margin-bottom:14px">
+            <div style="flex:1;background:var(--s-done-bg);border-radius:7px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:var(--s-done)">${validRows.length}</div><div style="font-size:11px;color:var(--s-done);margin-top:3px">유효 행</div></div>
+            <div style="flex:1;background:${errors.length?'var(--s-rej-bg)':'var(--surf)'};border-radius:7px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:${errors.length?'var(--s-rej)':'var(--tm)'}">${errors.length}</div><div style="font-size:11px;color:${errors.length?'var(--s-rej)':'var(--tm)'};margin-top:3px">오류</div></div>
+            <div style="flex:1;background:${warnings.length?'var(--s-prep-bg)':'var(--surf)'};border-radius:7px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:${warnings.length?'var(--s-prep)':'var(--tm)'}">${warnings.length}</div><div style="font-size:11px;color:${warnings.length?'var(--s-prep)':'var(--tm)'};margin-top:3px">경고</div></div>
+          </div>
+          <div style="max-height:180px;overflow-y:auto">${issueH}</div>
+          ${validRows.length?`<div style="margin-top:12px">
+            <label class="imp-opt sel" id="io_ap"><input type="radio" name="im" value="append" checked onchange="document.querySelectorAll('.imp-opt').forEach(e=>e.classList.remove('sel'));this.closest('.imp-opt').classList.add('sel')"><div><div style="font-size:12.5px;font-weight:600">기존에 추가 (Append) — 총 ${samples.length+validRows.length}건</div></div></label>
+            <label class="imp-opt" id="io_rp"><input type="radio" name="im" value="replace" onchange="document.querySelectorAll('.imp-opt').forEach(e=>e.classList.remove('sel'));this.closest('.imp-opt').classList.add('sel')"><div><div style="font-size:12.5px;font-weight:600">법인별 교체 (Replace) — Import된 법인만 교체, 나머지 법인 데이터 유지</div></div></label>
+          </div>`:'<div style="margin-top:10px;padding:10px;background:var(--surf);border-radius:6px;font-size:12px;color:var(--tm);text-align:center">유효한 행이 없어 Import할 수 없습니다</div>'}
+        </div>
+        <div class="mf"><button class="btn btn-o" onclick="closeModal()">취소</button>${validRows.length?`<button class="btn btn-p" onclick="applyImport()">Import (${validRows.length}건)</button>`:''}</div>
+      </div>
+    </div>`;
+}
+
+// ── Import 확정 — 실제 state 반영 (2단계 MD Step5) ────────
+function applyImport(){
+  const rows=_pendingImportRows;
+  if(!rows||!rows.length){showToast('Import할 데이터가 없습니다','warning');return;}
+  const mode=document.querySelector('input[name="im"]:checked')?.value||'append';
+  if(mode==='replace'){
+    // import된 법인만 교체 — 나머지 법인 데이터는 그대로 유지
+    const importedCorps=[...new Set(rows.map(r=>r.corporation))];
+    const kept=samples.filter(s=>!importedCorps.includes(s.corporation));
+    const base=kept.length?Math.max(...kept.map(s=>s.id))+1:1;
+    rows.forEach((r,i)=>{r.id=base+i;});
+    samples=[...kept,...rows];
+  } else {
+    const base=nextId();
+    rows.forEach((r,i)=>{r.id=base+i;});
+    samples=[...samples,...rows];
+  }
+  _pendingImportRows=[];
+  saveSamples();closeModal();render();
+  showToast(`Import 완료: ${rows.length}건 ${mode==='replace'?'전체 교체':'추가'}됨`,'success');
+}
+
+// ── Excel Export ──────────────────────────────────────────
+function openExportModal(){
+  const sel=state.selectedRows.size;
+  document.getElementById('mc').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="mh"><div class="mt">📥 엑셀 Export</div><button class="mc" onclick="closeModal()">×</button></div>
+        <div class="mb">
+          <div style="font-size:11.5px;font-weight:700;color:var(--ts);margin-bottom:10px">Export 범위 선택</div>
+          <label class="imp-opt sel" onclick="document.querySelectorAll('.imp-opt').forEach(e=>e.classList.remove('sel'));this.classList.add('sel')"><input type="radio" name="em" value="all" checked><div><div style="font-size:12.5px;font-weight:600">전체 데이터 (${samples.length}건) — 그룹+브로드밴드 시트 분리</div></div></label>
+          <label class="imp-opt" onclick="document.querySelectorAll('.imp-opt').forEach(e=>e.classList.remove('sel'));this.classList.add('sel')"><input type="radio" name="em" value="corp"><div><div style="font-size:12.5px;font-weight:600">현재 탭 (${state.masterCorp}) 데이터만</div></div></label>
+          <label class="imp-opt" onclick="document.querySelectorAll('.imp-opt').forEach(e=>e.classList.remove('sel'));this.classList.add('sel')"><input type="radio" name="em" value="filtered"><div><div style="font-size:12.5px;font-weight:600">현재 필터 데이터 (${filteredBy(state.masterCorp,state.statusFilter).length}건)</div></div></label>
+          <label class="imp-opt${sel?'':' disabled'}" style="${sel?'':'opacity:.5;pointer-events:none'}" onclick="document.querySelectorAll('.imp-opt').forEach(e=>e.classList.remove('sel'));this.classList.add('sel')"><input type="radio" name="em" value="selected" ${sel?'':'disabled'}><div><div style="font-size:12.5px;font-weight:600">선택한 행 (${sel}건)</div></div></label>
+          <div style="margin-top:12px;padding:10px;background:var(--surf);border-radius:6px;font-size:11.5px;color:var(--ts)">📄 파일명: <strong>그룹제안샘플현황_${TODAY.toISOString().slice(0,10).replace(/-/g,'')}${(!window._xlsxUnavailable&&typeof XLSX!=='undefined')?'.xlsx':'.xls'}</strong><br><span style="font-size:10.5px;color:var(--tm)">${(!window._xlsxUnavailable&&typeof XLSX!=='undefined')?'SheetJS xlsx · 병합셀(!merges) · 그룹/브로드밴드 시트 분리':'Excel XML 형식 fallback · 그룹/브로드밴드 시트 분리'}</span></div>
+        </div>
+        <div class="mf"><button class="btn btn-o" onclick="closeModal()">취소</button><button class="btn btn-g" onclick="doExport()">📥 다운로드</button></div>
+      </div>
+    </div>`;
+}
+
+function doExport(){
+  const mode=document.querySelector('input[name="em"]:checked')?.value||'all';
+  let gData,bbData;
+  if(mode==='all'){gData=samples.filter(s=>s.corporation==='그룹');bbData=samples.filter(s=>s.corporation==='브로드밴드');}
+  else if(mode==='corp'){gData=state.masterCorp==='그룹'?filteredBy('그룹',null):[];bbData=state.masterCorp==='브로드밴드'?filteredBy('브로드밴드',null):[];}
+  else if(mode==='filtered'){gData=filteredBy('그룹',state.statusFilter);bbData=filteredBy('브로드밴드',state.statusFilter);}
+  else{gData=samples.filter(s=>s.corporation==='그룹'&&state.selectedRows.has(s.id));bbData=samples.filter(s=>s.corporation==='브로드밴드'&&state.selectedRows.has(s.id));}
+
+  const xlsxAvail=!window._xlsxUnavailable&&typeof XLSX!=='undefined';
+  const dateStr=TODAY.toISOString().slice(0,10).replace(/-/g,'');
+
+  if(xlsxAvail){
+    // ── SheetJS 방식: aoa_to_sheet + !merges (2단계 MD 준수) ──
+    const wb=XLSX.utils.book_new();
+
+    function buildXlsxSheet(data,colMap){
+      const keys=colMap.map(c=>c.key);
+      const headers=colMap.map(c=>c.excel);
+      // 1행: 그룹 헤더 (병합 표시용 — !merges로 실제 병합)
+      const row0=['기본 정보',...Array(8).fill(''),'영업 확인 사항',...Array(6).fill('')];
+      // 2행: 실제 컬럼명
+      const row1=headers;
+      // 3행~: 데이터
+      const dataRows=data.map(s=>keys.map(k=>String(s[k]??'')));
+      const aoa=[row0,row1,...dataRows];
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      // 병합 셀: 기본 정보 A1:I1, 영업 확인 사항 J1:P1
+      ws['!merges']=[
+        {s:{r:0,c:0},e:{r:0,c:8}},
+        {s:{r:0,c:9},e:{r:0,c:15}},
+      ];
+      // 컬럼 너비 설정
+      ws['!cols']=colMap.map(c=>({wch:Math.max(c.excel.length+2,10)}));
+      return ws;
+    }
+
+    if(gData.length)XLSX.utils.book_append_sheet(wb,buildXlsxSheet(gData,COL_MAP_G),'그룹');
+    if(bbData.length)XLSX.utils.book_append_sheet(wb,buildXlsxSheet(bbData,COL_MAP_BB),'브로드밴드');
+    if(!gData.length&&!bbData.length){showToast('Export할 데이터가 없습니다','warning');return;}
+
+    XLSX.writeFile(wb,`그룹제안샘플현황_${dateStr}.xlsx`);
+    closeModal();
+    showToast(`Export 완료 (xlsx): 그룹 ${gData.length}건 · 브로드밴드 ${bbData.length}건`,'success');
+  } else {
+    // ── Excel XML fallback (SheetJS 없을 때) ──
+    const xe=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    function buildXmlSheet(data,colMap){
+      const headers=colMap.map(c=>c.excel);
+      let t=`<Table>\n<Row><Cell ss:MergeAcross="8" ss:StyleID="s0"><Data ss:Type="String">기본 정보</Data></Cell><Cell ss:MergeAcross="6" ss:StyleID="s0"><Data ss:Type="String">영업 확인 사항</Data></Cell></Row>\n`;
+      t+=`<Row>${headers.map(h=>`<Cell ss:StyleID="s1"><Data ss:Type="String">${xe(h)}</Data></Cell>`).join('')}</Row>\n`;
+      data.forEach(s=>{t+=`<Row>${colMap.map(c=>`<Cell ss:StyleID="s2"><Data ss:Type="String">${xe(s[c.key])}</Data></Cell>`).join('')}</Row>\n`;});
+      return t+'</Table>';
+    }
+    let xml=`<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n<Styles>\n<Style ss:ID="s0"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#0d2240" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>\n<Style ss:ID="s1"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1e3a5f" ss:Pattern="Solid"/></Style>\n<Style ss:ID="s2"><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e2e8f0"/></Borders></Style>\n</Styles>\n`;
+    if(gData.length)xml+=`<Worksheet ss:Name="그룹">\n${buildXmlSheet(gData,COL_MAP_G)}\n</Worksheet>\n`;
+    if(bbData.length)xml+=`<Worksheet ss:Name="브로드밴드">\n${buildXmlSheet(bbData,COL_MAP_BB)}\n</Worksheet>\n`;
+    xml+='</Workbook>';
+    const blob=new Blob(['﻿'+xml],{type:'application/vnd.ms-excel;charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=`그룹제안샘플현황_${dateStr}.xls`;a.click();
+    URL.revokeObjectURL(url);closeModal();
+    showToast(`Export 완료 (XML fallback): 그룹 ${gData.length}건 · 브로드밴드 ${bbData.length}건`,'warning');
+  }
+}
+
+render();
+</script>
