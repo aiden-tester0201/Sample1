@@ -99,9 +99,6 @@ tr.row-sel{background:#eff6ff!important}
 .fmi{padding:5px 10px;font-size:12px;cursor:pointer;border-radius:4px;color:var(--tp);white-space:nowrap}
 .fmi:hover{background:var(--surf)}.fmi.sel{background:var(--navy);color:#fff}
 /* Board */
-.vtog{display:flex;gap:3px;background:var(--surf);border-radius:6px;padding:3px}
-.vt{padding:5px 13px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--ts);transition:all .12s}
-.vt.active{background:#fff;color:var(--tp);box-shadow:0 1px 3px rgba(0,0,0,.1);font-weight:700}
 /* Relative date */
 .rd{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px}
 .rd-u{background:var(--s-rej-bg);color:var(--s-rej)}.rd-w{background:var(--s-prep-bg);color:var(--s-prep)}
@@ -170,26 +167,6 @@ tr.row-sel{background:#eff6ff!important}
 .t-ico{font-size:14px;flex-shrink:0}
 .t-s{border-left:4px solid var(--s-done)}.t-e{border-left:4px solid var(--s-rej)}.t-w{border-left:4px solid var(--amber)}.t-i{border-left:4px solid var(--s-req)}
 @keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-/* PA Guide */
-.g-tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
-.g-tab{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--brd);background:#fff;color:var(--ts);transition:all .12s}
-.g-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
-.g-sec{background:#fff;border-radius:8px;border:1px solid var(--brd);margin-bottom:12px;overflow:hidden}
-.g-sh{background:var(--navy-deep);color:#fff;padding:12px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
-.g-bd{padding:16px}
-.flow-wrap{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:10px 0}
-.fb{background:var(--surf);border:1px solid var(--brd);border-radius:6px;padding:8px 12px;font-size:12px;font-weight:600;text-align:center}
-.fa{font-size:16px;color:var(--tm);padding:0 6px}
-.sc-tbl{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:8px}
-.sc-tbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:left;font-weight:600;font-size:11px}
-.sc-tbl td{padding:6px 10px;border-bottom:1px solid var(--brd);vertical-align:top}
-.sc-tbl tr:last-child td{border-bottom:none}
-.code-block{background:#1e293b;color:#e2e8f0;padding:14px;border-radius:6px;font-family:'Cascadia Code','Consolas',monospace;font-size:11.5px;line-height:1.6;overflow-x:auto;white-space:pre;margin-bottom:10px}
-.cl-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd)}
-.cl-item:last-child{border-bottom:none}
-.cl-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--navy);flex-shrink:0;margin-top:1px}
-.email-preview{background:#f8fafc;border:1px solid var(--brd);border-radius:6px;padding:14px;font-size:12px;line-height:1.7;margin-bottom:10px}
-.email-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff}
 .empty{text-align:center;padding:36px 20px;color:var(--tm);font-size:12px}
 </style>
 
@@ -376,6 +353,8 @@ async function initData(){
   _backfillRequestDate();
   _localBackup();
   render();
+  // D-1 도래한 활성 샘플 자동 감지 → 메일 초안(.eml) 준비
+  setTimeout(checkD1Reminders, 400);
 }
 // requestDate가 없는 기존 데이터는 requestName/dueDate에서 요청일을 추출해 채움(정렬 일관성)
 function _backfillRequestDate(){
@@ -387,7 +366,7 @@ function _backfillRequestDate(){
   });
 }
 
-let state={view:'dashboard',dashCorp:'그룹',dashYear:'all',masterCorp:'그룹',boardCorp:'그룹',boardMode:'table',selectedId:null,panelOpen:false,panelMode:'detail',listPanelData:null,statusFilter:null,editData:{},selectedRows:new Set(),paTab:'arch',editCell:null,masterSearch:''};
+let state={view:'dashboard',dashCorp:'그룹',dashYear:'all',masterCorp:'그룹',boardCorp:'그룹',selectedId:null,panelOpen:false,panelMode:'detail',listPanelData:null,statusFilter:null,editData:{},selectedRows:new Set(),editCell:null,masterSearch:''};
 
 // ── helpers ──────────────────────────────────────────────
 const AVC=['#3b82f6','#8b5cf6','#16a34a','#f97316','#ec4899','#0891b2'];
@@ -947,44 +926,19 @@ function syncMasterScroll(){
   body.onscroll=()=>{if(lock)return;lock=true;top.scrollLeft=body.scrollLeft;lock=false;};
 }
 
-// ── Board ─────────────────────────────────────────────────
-function buildBoardTable(){
-  const corp=state.boardCorp;
-  const data=filteredBy(corp,null);
-  const firstLabel=corp==='그룹'?'샘플 요청':'모델명';
-  const firstKey=corp==='그룹'?'requestName':'modelName';
-  const cols=[{k:firstKey,l:firstLabel},{k:'meetingHW',l:'회의 내용'},{k:'dueDate',l:'준비 기한'},{k:'status',l:'진행 상태'},{k:'feedbackDate',l:'피드백 예정일자'},{k:'monitoringFeedback',l:'★사업자 모니터링'},{k:'requester',l:'요청자'},{k:'keyContacts',l:'주요 관련자'}];
-  const thead=`<tr>`+cols.map(c=>`<th>${c.l}</th>`).join('')+'</tr>';
-  const rows=data.map(s=>{
-    const done=s.status==='샘플 회수';
-    const cells=cols.map(c=>{
-      let v;
-      if(c.k==='status')v=badge(s.status);
-      else if(c.k==='dueDate')v=relDate(s.dueDate,done);
-      else if(c.k==='feedbackDate')v=`<span style="font-size:11px">${s.feedbackDate||'-'}</span>`;
-      else if(c.k==='requester')v=`<div class="av-row">${avatar(s.requester)}<span>${esc(s.requester)}</span></div>`;
-      else if(c.k===firstKey)v=`<span style="font-weight:700;font-size:12px">${esc(s[c.k])}</span>`;
-      else v=`<span class="td-tr" style="max-width:130px" title="${esc(s[c.k]||'')}">${esc(s[c.k])||'-'}</span>`;
-      return `<td>${v}</td>`;
-    }).join('');
-    return `<tr onclick="openPanel(${s.id})">${cells}</tr>`;
-  }).join('');
-  return `<div class="tw"><div class="tscroll"><table><thead>${thead}</thead><tbody>${rows}</tbody></table></div></div>`;
-}
-
 function buildKanban(){
   const corp=state.boardCorp;
-  const allData=filteredBy('all',null);
+  const data=filteredBy(corp,null);
   const kCols=[{status:'샘플 요청',border:'#3b82f6'},{status:'샘플 준비 중',border:'#f97316'},{status:'샘플 발송',border:'#8b5cf6'},{status:'샘플 회수',border:'#16a34a'}];
   return `<div class="kanban">${kCols.map(col=>{
     const cfg=STATUS_MAP[col.status];
-    const items=allData.filter(s=>s.status===col.status);
+    const items=data.filter(s=>s.status===col.status);
     const cards=items.map(s=>{
       const nm=s.corporation==='그룹'?s.projectName:s.modelName;
       return `<div class="k-card" onclick="openPanel(${s.id})">
         <div class="k-title">${esc(nm)}</div>
         <div class="k-meta">
-          <span style="display:flex;align-items:center;gap:6px">${corpBadge(s.corporation)} ${esc(s.operator)}</span>
+          <span>${esc(s.operator)}</span>
           <span>${relDate(s.dueDate,false)}</span>
         </div>
       </div>`;
@@ -996,9 +950,8 @@ function buildKanban(){
 function buildBoard(){
   const corpTabsH=`<div class="corp-tabs">
     ${['그룹','브로드밴드'].map(c=>`<button class="ct${state.boardCorp===c?' active':''}" onclick="state.boardCorp='${c}';render()">${c==='그룹'?'🏢 그룹':'📡 브로드밴드'}</button>`).join('')}
-    <span style="margin-left:auto;color:var(--tm);font-size:11px;align-self:center;padding-right:4px">칸반: 법인 구분 없이 전체 표시</span>
   </div>`;
-  return corpTabsH+(state.boardMode==='kanban'?buildKanban():buildBoardTable());
+  return corpTabsH+buildKanban();
 }
 
 // ── Panel ─────────────────────────────────────────────────
@@ -1013,9 +966,12 @@ function buildPanel(s){
       <div class="sp-sub">${corpBadge(s.corporation)} ${esc(s.operator)} · ${esc(s.salesManager)} · ${esc(s.year)}년</div>
     </div>
     <div class="sp-sec"><div class="sp-st">② 회의 내용 준비사항</div>
-      <div class="fr"><div class="fg"><label class="fl">HW</label><input class="fi" id="e_hw" value="${esc(s.meetingHW)}"></div></div>
-      <div class="fr"><div class="fg"><label class="fl">SW</label><input class="fi" id="e_sw" value="${esc(s.meetingSW)}"></div></div>
-      <div class="fr"><div class="fg"><label class="fl">기구</label><input class="fi" id="e_st" value="${esc(s.meetingStructure)}"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">HW</label><input class="fi" id="e_hw" value="${esc(s.meetingHW)}"></div><div class="fg"><label class="fl">SW</label><input class="fi" id="e_sw" value="${esc(s.meetingSW)}"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">RF</label><input class="fi" id="e_rf" value="${esc(s.meetingRF)}"></div><div class="fg"><label class="fl">기구</label><input class="fi" id="e_st" value="${esc(s.meetingStructure)}"></div></div>
+      ${s.corporation==='그룹'
+        ?`<div class="fr"><div class="fg"><label class="fl">디자인</label><input class="fi" id="e_dsn" value="${esc(s.meetingDesign)}"></div><div class="fg"><label class="fl">개발QA</label><input class="fi" id="e_qa" value="${esc(s.meetingDevQA)}"></div></div>`
+        :`<div class="fr"><div class="fg"><label class="fl">디자인</label><input class="fi" id="e_dsn" value="${esc(s.meetingDesign)}"></div><div class="fg"></div></div>`
+      }
     </div>
     <div class="sp-sec"><div class="sp-st">③ 진행 상태</div><div class="st-opts">${stOpts}</div></div>
     <div class="sp-sec"><div class="sp-st">④ ⑤ 기한 / 피드백 예정일</div>
@@ -1039,8 +995,9 @@ function buildPanel(s){
         <button class="btn btn-o btn-sm" onclick="openMailto(${s.id})">📧 Outlook 메일</button>
         <button class="btn btn-o btn-sm" onclick="openOutlookWeb(${s.id})">🌐 웹 작성창</button>
         <button class="btn btn-o btn-sm" onclick="downloadICS(${s.id})">📅 일정(.ics) D-3·D-1</button>
+        <button class="btn btn-p btn-sm" onclick="createD1Eml(samples.find(x=>x.id===${s.id}))">⏰ D-1 알림 메일</button>
       </div>
-      <div style="font-size:10.5px;color:var(--tm);margin-top:6px">요청자·관련자 이메일(⑧)을 저장 후 사용하세요</div>
+      <div style="font-size:10.5px;color:var(--tm);margin-top:6px">요청자·관련자 이메일(⑧)을 저장 후 사용하세요 · D-1 알림은 준비 기한 하루 전 자동 생성됩니다</div>
     </div>`;
   document.getElementById('panelFoot').innerHTML=`
     <button class="btn btn-r btn-sm" onclick="openSingleDeleteConfirm(${s.id})">🗑 삭제</button>
@@ -1048,254 +1005,28 @@ function buildPanel(s){
     <button class="btn btn-p" onclick="savePanel(${s.id})">저장</button></div>`;
 }
 
-// ── Power Automate Guide ──────────────────────────────────
-function buildPAGuide(){
-  const tabs=[{id:'arch',l:'🏗 아키텍처'},{id:'flows',l:'⚡ 플로우 구성'},{id:'sp',l:'📋 SharePoint 설정'},{id:'email',l:'✉ 이메일 템플릿'},{id:'check',l:'☑ 체크리스트'}];
-  const tabH=`<div class="g-tabs">${tabs.map(t=>`<button class="g-tab${state.paTab===t.id?' active':''}" onclick="state.paTab='${t.id}';render()">${t.l}</button>`).join('')}</div>`;
-
-  let content='';
-  if(state.paTab==='arch'){
-    content=`
-      <div class="g-sec"><div class="g-sh">📐 전체 시스템 아키텍처</div><div class="g-bd">
-        <div class="flow-wrap">
-          <div class="fb" style="background:#dbeafe;border-color:#93c5fd">React 앱<br><small style="color:#1d4ed8;font-weight:400">샘플 등록/수정</small></div>
-          <div class="fa">↓</div>
-          <div class="fb" style="background:#dcfce7;border-color:#86efac">SharePoint List<br><small style="color:#166534;font-weight:400">그룹/브로드밴드 데이터</small></div>
-          <div class="fa">↓</div>
-          <div class="fb" style="background:#fef3c7;border-color:#fcd34d">Power Automate<br><small style="color:#92400e;font-weight:400">변경 감지 트리거</small></div>
-          <div class="fa">↓</div>
-          <div class="fb" style="background:#ede9fe;border-color:#c4b5fd">조건 분기<br><small style="color:#5b21b6;font-weight:400">법인 구분</small></div>
-          <div class="fa">↓</div>
-          <div class="fb" style="background:#fce7f3;border-color:#f9a8d4">Outlook 이메일<br><small style="color:#9d174d;font-weight:400">담당자 수신</small></div>
-        </div>
-        <div style="margin-top:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--ts);margin-bottom:8px">알림 트리거 시나리오</div>
-          <table class="sc-tbl">
-            <thead><tr><th>시나리오</th><th>트리거 조건</th><th>수신자</th></tr></thead>
-            <tbody>
-              <tr><td>🆕 새 샘플 요청 등록</td><td>SharePoint 새 항목 추가</td><td>영업 담당자, 주요 관련자</td></tr>
-              <tr><td>⚡ 준비 기한 D-3 알림</td><td>준비 기한 = 오늘 + 3일</td><td>영업 담당자</td></tr>
-              <tr><td>🔴 준비 기한 D-1 알림</td><td>준비 기한 = 오늘 + 1일</td><td>영업 담당자, 요청자</td></tr>
-              <tr><td>🔄 진행 상태 변경</td><td>status 컬럼 값 변경</td><td>요청자, 주요 관련자</td></tr>
-              <tr><td>📅 피드백 예정일 당일</td><td>feedbackDate = 오늘</td><td>영업 담당자</td></tr>
-              <tr><td>⚠️ 기한 초과</td><td>dueDate &lt; 오늘 AND status ≠ '샘플 회수'</td><td>영업 담당자, 팀장(CC)</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div></div>
-      <div class="g-sec"><div class="g-sh">💻 STEP A — React → SharePoint 연동 (MSAL)</div><div class="g-bd">
-        <div style="font-size:12px;color:var(--ts);margin-bottom:10px">Microsoft Graph API + MSAL 인증으로 React 앱 저장 시 SharePoint List에 자동 동기화</div>
-        <div class="code-block">// 1. npm install @azure/msal-react @azure/msal-browser
-// 2. Azure AD 앱 등록 후 권한: Sites.ReadWrite.All
-
-const msalConfig = {
-  auth: {
-    clientId: process.env.REACT_APP_CLIENT_ID,
-    authority: \`https://login.microsoftonline.com/\${process.env.REACT_APP_TENANT_ID}\`,
-    redirectUri: window.location.origin,
-  }
-};
-
-// SharePoint List에 항목 추가
-async function syncToSharePoint(sampleData, accessToken) {
-  const siteId = 'YOUR_SITE_ID';
-  const listId = 'YOUR_LIST_ID';
-
-  const fields = {
-    Title: sampleData.projectName || sampleData.modelName,
-    Corporation: sampleData.corporation,
-    SalesDept: sampleData.salesDept,
-    SalesManager: sampleData.salesManager,
-    Operator: sampleData.operator,
-    Status: sampleData.status,
-    FeedbackDate: sampleData.feedbackDate,
-    DueDate: sampleData.dueDate,
-    Requester: sampleData.requester,
-    KeyContacts: sampleData.keyContacts,
-  };
-
-  await fetch(
-    \`https://graph.microsoft.com/v1.0/sites/\${siteId}/lists/\${listId}/items\`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': \`Bearer \${accessToken}\`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ fields }),
-    }
-  );
-}</div>
-      </div></div>`;
-  }
-
-  if(state.paTab==='flows'){
-    content=`
-      <div class="g-sec"><div class="g-sh">⚡ 플로우 1 — 새 샘플 요청 등록 알림</div><div class="g-bd">
-        <div class="flow-wrap">
-          <div class="fb">트리거<br><small>항목이 만들어진 경우</small></div><div class="fa">→</div>
-          <div class="fb">변수 초기화<br><small>법인·샘플명·담당자 추출</small></div><div class="fa">→</div>
-          <div class="fb">조건 분기<br><small>그룹 / 브로드밴드</small></div><div class="fa">→</div>
-          <div class="fb" style="background:#fce7f3">Outlook 이메일 발송</div>
-        </div>
-        <div style="font-size:11.5px;color:var(--ts);margin-top:10px"><strong>제목 형식:</strong> [샘플 요청] {법인} - {샘플명} 신규 등록</div>
-      </div></div>
-      <div class="g-sec"><div class="g-sh">⏰ 플로우 2 — D-3 / D-1 기한 알림 (매일 오전 9시)</div><div class="g-bd">
-        <div class="flow-wrap">
-          <div class="fb">되풀이 트리거<br><small>매일 09:00</small></div><div class="fa">→</div>
-          <div class="fb">SharePoint 항목 조회<br><small>필터: 준비기한 = 오늘+3일</small></div><div class="fa">→</div>
-          <div class="fb">Apply to Each</div><div class="fa">→</div>
-          <div class="fb" style="background:#fce7f3">Outlook 이메일 발송</div>
-        </div>
-        <div style="font-size:11.5px;color:var(--ts);margin-top:8px">조건: <code style="background:#f1f5f9;padding:2px 5px;border-radius:3px">진행 상태 ≠ 샘플 회수</code></div>
-      </div></div>
-      <div class="g-sec"><div class="g-sh">🔄 플로우 3 — 진행 상태 변경 알림</div><div class="g-bd">
-        <div class="flow-wrap">
-          <div class="fb">트리거<br><small>항목이 수정된 경우</small></div><div class="fa">→</div>
-          <div class="fb">조건 확인<br><small>status 변경 여부</small></div><div class="fa">→</div>
-          <div class="fb" style="background:#fce7f3">Outlook 발송<br><small>이전상태 → 새상태</small></div>
-        </div>
-        <div style="font-size:11.5px;color:var(--ts);margin-top:8px"><strong>제목:</strong> [상태 변경] {샘플명} 상태가 {이전} → {현재}로 업데이트되었습니다</div>
-      </div></div>
-      <div class="g-sec"><div class="g-sh">⚠️ 플로우 4 — 기한 초과 알림 (매일 오전 9시)</div><div class="g-bd">
-        <div style="font-size:11.5px;color:var(--ts);margin-bottom:8px">
-          조건: dueDate &lt; 오늘 AND status ≠ '샘플 회수'<br>
-          수신: 영업 담당자 + 팀장(CC)
-        </div>
-        <div class="flow-wrap">
-          <div class="fb">되풀이 09:00</div><div class="fa">→</div>
-          <div class="fb">기한 초과 항목 조회</div><div class="fa">→</div>
-          <div class="fb">Apply to Each</div><div class="fa">→</div>
-          <div class="fb" style="background:#fce7f3">긴급 이메일 발송</div>
-        </div>
-      </div></div>`;
-  }
-
-  if(state.paTab==='sp'){
-    content=`
-      <div class="g-sec"><div class="g-sh">📋 SharePoint List 컬럼 구성</div><div class="g-bd">
-        <div style="font-size:12px;font-weight:700;color:var(--ts);margin-bottom:8px">공통 컬럼 (그룹 + 브로드밴드)</div>
-        <table class="sc-tbl">
-          <thead><tr><th>컬럼명</th><th>SharePoint 형식</th><th>필수</th></tr></thead>
-          <tbody>
-            <tr><td>Corporation (법인 구분)</td><td>선택형: 그룹 / 브로드밴드</td><td>✅</td></tr>
-            <tr><td>SalesDept (영업부서)</td><td>한 줄 텍스트</td><td>✅</td></tr>
-            <tr><td>SalesManager (영업 담당자)</td><td>한 줄 텍스트</td><td>✅</td></tr>
-            <tr><td>Operator (사업자)</td><td>한 줄 텍스트</td><td>✅</td></tr>
-            <tr><td>Status (진행 상태)</td><td>선택형: 샘플 요청/샘플 준비 중/샘플 발송/샘플 회수</td><td>✅</td></tr>
-            <tr><td>FeedbackDate (피드백 예정일자)</td><td>날짜 및 시간</td><td></td></tr>
-            <tr><td>PrepDeadline (준비 기한)</td><td>날짜 및 시간</td><td></td></tr>
-            <tr><td>Requester (요청자)</td><td>한 줄 텍스트</td><td></td></tr>
-            <tr><td>KeyContacts (주요 관련자)</td><td>여러 줄 텍스트</td><td></td></tr>
-            <tr><td>ReturnQuantity (회수 수량)</td><td>숫자</td><td></td></tr>
-          </tbody>
-        </table>
-        <div style="font-size:12px;font-weight:700;color:var(--ts);margin:12px 0 8px">그룹 고유 컬럼</div>
-        <table class="sc-tbl">
-          <thead><tr><th>컬럼명</th><th>형식</th></tr></thead>
-          <tbody>
-            <tr><td>ProjectName (샘플 프로젝트명)</td><td>한 줄 텍스트</td></tr>
-            <tr><td>OS</td><td>한 줄 텍스트</td></tr>
-            <tr><td>Manufacturer (제조사)</td><td>한 줄 텍스트</td></tr>
-            <tr><td>Chip</td><td>한 줄 텍스트</td></tr>
-          </tbody>
-        </table>
-        <div style="font-size:12px;font-weight:700;color:var(--ts);margin:12px 0 8px">브로드밴드 고유 컬럼</div>
-        <table class="sc-tbl">
-          <thead><tr><th>컬럼명</th><th>형식</th></tr></thead>
-          <tbody>
-            <tr><td>ModelName (모델명)</td><td>한 줄 텍스트</td></tr>
-            <tr><td>ProductGroup (제품군)</td><td>한 줄 텍스트</td></tr>
-            <tr><td>Country (국가)</td><td>한 줄 텍스트</td></tr>
-            <tr><td>Purpose (용도)</td><td>한 줄 텍스트</td></tr>
-          </tbody>
-        </table>
-      </div></div>`;
-  }
-
-  if(state.paTab==='email'){
-    content=`
-      <div class="g-sec"><div class="g-sh">✉ 그룹 법인 이메일 템플릿</div><div class="g-bd">
-        <div class="email-preview">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px">제목: [샘플 요청] <span class="email-badge" style="background:#1e3a5f">🏢 그룹</span> - {샘플 프로젝트명} 신규 등록</div>
-          안녕하세요, {영업 담당자}님.<br><br>
-          새로운 샘플 요청이 등록되었습니다.<br>
-          <div style="background:#f8fafc;border-left:4px solid #1e3a5f;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;font-size:12px">
-            <strong>법인:</strong> 🏢 그룹<br>
-            <strong>사업자:</strong> {사업자}<br>
-            <strong>샘플 프로젝트명:</strong> {샘플 프로젝트명}<br>
-            <strong>OS / 제조사 / Chip:</strong> {OS} / {제조사} / {Chip}<br>
-            <strong>준비 기한:</strong> {준비 기한}<br>
-            <strong>진행 상태:</strong> <span class="email-badge" style="background:#f97316">🔄 샘플 준비 중</span><br>
-            <strong>요청자:</strong> {요청자}
-          </div>
-          샘플 관리 시스템에서 상세 내용을 확인해 주세요.
-        </div>
-      </div></div>
-      <div class="g-sec"><div class="g-sh">✉ 브로드밴드 법인 이메일 템플릿</div><div class="g-bd">
-        <div class="email-preview">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px">제목: [샘플 요청] <span class="email-badge" style="background:#6d28d9">📡 브로드밴드</span> - {모델명} 신규 등록</div>
-          안녕하세요, {영업 담당자}님.<br><br>
-          새로운 샘플 요청이 등록되었습니다.<br>
-          <div style="background:#f8fafc;border-left:4px solid #6d28d9;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;font-size:12px">
-            <strong>법인:</strong> 📡 브로드밴드<br>
-            <strong>사업자:</strong> {사업자}<br>
-            <strong>모델명:</strong> {모델명}<br>
-            <strong>제품군 / 국가 / 용도:</strong> {제품군} / {국가} / {용도}<br>
-            <strong>준비 기한:</strong> {준비 기한}<br>
-            <strong>진행 상태:</strong> <span class="email-badge" style="background:#3b82f6">📝 샘플 요청</span><br>
-            <strong>요청자:</strong> {요청자}
-          </div>
-          샘플 관리 시스템에서 상세 내용을 확인해 주세요.
-        </div>
-      </div></div>`;
-  }
-
-  if(state.paTab==='check'){
-    const items=[
-      'Microsoft 365 라이선스 확인 (Power Automate 포함 플랜)',
-      'SharePoint 사이트 생성 및 샘플현황 List 컬럼 구성',
-      'Azure AD 앱 등록 (CLIENT_ID, TENANT_ID 발급)',
-      'React 앱 → SharePoint 연동 (MSAL 인증 설정 완료)',
-      '플로우 1: 신규 샘플 등록 알림 — 구성 및 테스트',
-      '플로우 2: D-3 / D-1 기한 알림 — 매일 되풀이 구성',
-      '플로우 3: 진행 상태 변경 알림 — 조건 분기 확인',
-      '플로우 4: 기한 초과 알림 — 팀장 CC 설정 확인',
-      '그룹 법인 이메일 본문 템플릿 (Chip/OS 정보 포함) 검증',
-      '브로드밴드 법인 이메일 본문 템플릿 (제품군/국가/용도) 검증',
-      '수신자 이메일 주소 동적 연결 확인',
-      '법인별 이메일 본문 조건 분기 테스트 실행',
-    ];
-    content=`<div class="g-sec"><div class="g-sh">☑ Power Automate 설정 체크리스트</div><div class="g-bd">
-      ${items.map((it,i)=>`<div class="cl-item"><input type="checkbox" id="cl${i}"><label for="cl${i}" style="font-size:12.5px;cursor:pointer">${it}</label></div>`).join('')}
-    </div></div>`;
-  }
-
-  return tabH+content;
-}
-
 // ── Render ────────────────────────────────────────────────
 function render(){
-  const views={dashboard:'🏠 현황 대시보드',master:'📊 샘플현황 리스트',board:'📋 샘플 준비현황',guide:'⚡ 자동알림 가이드'};
+  const views={dashboard:'🏠 현황 대시보드',master:'📊 샘플현황 리스트',board:'📋 샘플 준비현황'};
   const v=state.view;
   const sel=state.selectedRows.size;
 
   let topR='';
   if(v==='master'){topR=`<button class="btn btn-o btn-sm" onclick="openImport()">📂 엑셀 Import</button><button class="btn btn-o btn-sm" onclick="openExportModal()">📥 엑셀 Export${sel?` (${sel})`:''}</button>${sel?`<button class="btn btn-r btn-sm" onclick="openDeleteConfirm()">🗑 샘플 삭제 (${sel})</button>`:''}<button class="btn btn-p btn-sm" onclick="addSample()">+ 샘플 추가</button>`;}
-  if(v==='board'){topR=`<div class="vtog"><button class="vt${state.boardMode==='table'?' active':''}" onclick="state.boardMode='table';render()">≡ 테이블</button><button class="vt${state.boardMode==='kanban'?' active':''}" onclick="state.boardMode='kanban';render()">⊞ 칸반</button></div><button class="btn btn-p btn-sm" style="margin-left:6px" onclick="addSample()">+ 추가</button>`;}
+  if(v==='board'){topR=`<button class="btn btn-p btn-sm" onclick="addSample()">+ 추가</button>`;}
 
   let content='';
   if(v==='dashboard')content=buildDashboard();
   else if(v==='master')content=buildMasterTable();
   else if(v==='board')content=buildBoard();
-  else content=buildPAGuide();
+  else content=buildDashboard();
 
   document.getElementById('root').innerHTML=`
     <div class="app">
       <nav class="sidebar">
         <div class="sb-logo"><div class="sb-logo-main">샘플 운영 관리 시스템</div><div class="sb-logo-sub">그룹 + 브로드밴드</div></div>
         <div class="sb-nav"><div class="sb-sec">메인 메뉴</div>
-          ${[{id:'dashboard',icon:'🏠',l:'현황 대시보드'},{id:'master',icon:'📊',l:'샘플현황 리스트'},{id:'board',icon:'📋',l:'샘플 준비현황'},{id:'guide',icon:'⚡',l:'자동알림 가이드'}]
+          ${[{id:'dashboard',icon:'🏠',l:'현황 대시보드'},{id:'master',icon:'📊',l:'샘플현황 리스트'},{id:'board',icon:'📋',l:'샘플 준비현황'}]
             .map(n=>`<div class="nav-item${v===n.id?' active':''}" onclick="setView('${n.id}')"><div class="ndot"></div>${n.icon} ${n.l}</div>`).join('')}
         </div>
         <div class="sb-foot">KAON Group · 영업본부<br>${TODAY.toLocaleDateString('ko-KR')}</div>
@@ -1328,13 +1059,15 @@ function setEditStatus(st){state.editData.status=st;const s=samples.find(x=>x.id
 function savePanel(id){
   const idx=samples.findIndex(x=>x.id===id);if(idx<0)return;const s=samples[idx];
   const g=k=>{const el=document.getElementById(k);return el?el.value:undefined;};
-  samples[idx]={...s,status:state.editData.status||s.status,meetingHW:g('e_hw')??s.meetingHW,meetingSW:g('e_sw')??s.meetingSW,meetingStructure:g('e_st')??s.meetingStructure,dueDate:g('e_pd')??s.dueDate,feedbackDate:g('e_fd')??s.feedbackDate,monitoringStart:g('e_ms')??s.monitoringStart,monitoringEnd:g('e_me')??s.monitoringEnd,monitoringFeedback:g('e_mf')??s.monitoringFeedback,requester:g('e_rq')??s.requester,keyContacts:g('e_kc')??s.keyContacts,requesterEmail:g('e_re')??s.requesterEmail,stakeholderEmail:g('e_se')??s.stakeholderEmail};
+  samples[idx]={...s,status:state.editData.status||s.status,meetingHW:g('e_hw')??s.meetingHW,meetingSW:g('e_sw')??s.meetingSW,meetingRF:g('e_rf')??s.meetingRF,meetingStructure:g('e_st')??s.meetingStructure,meetingDesign:g('e_dsn')??s.meetingDesign,meetingDevQA:g('e_qa')??s.meetingDevQA,dueDate:g('e_pd')??s.dueDate,feedbackDate:g('e_fd')??s.feedbackDate,monitoringStart:g('e_ms')??s.monitoringStart,monitoringEnd:g('e_me')??s.monitoringEnd,monitoringFeedback:g('e_mf')??s.monitoringFeedback,requester:g('e_rq')??s.requester,keyContacts:g('e_kc')??s.keyContacts,requesterEmail:g('e_re')??s.requesterEmail,stakeholderEmail:g('e_se')??s.stakeholderEmail};
   saveSamples();_sbUpsert(samples[idx]);showToast('저장되었습니다','success');closePanel();
+  // 저장 직후 준비 기한 D-1 조건 강제 재확인 (localStorage 이력 무시)
+  setTimeout(()=>checkD1Reminders(true), 500);
 }
 function addSample(){
   const corp=state.view==='board'?state.boardCorp:state.masterCorp;
   const id=nextId();
-  const base={id,corporation:corp,requestDate:_today8(),salesDept:'',salesManager:'',operator:'',year:2026,quantity:1,status:'샘플 요청',feedbackDate:'',operatorFeedback:'',isReturned:'-',returnImpossibleReason:'',isOrdered:'-',returnQuantity:0,requestName:`260626_Buyer_목적`,meetingHW:'',meetingSW:'',meetingStructure:'',dueDate:'',monitoringStart:'',monitoringEnd:'',monitoringFeedback:'',requester:'',keyContacts:'',attachment:`260626_개발사업본부 샘플요청서_샘플명_팀_이름.xlsx`};
+  const base={id,corporation:corp,requestDate:_today8(),salesDept:'',salesManager:'',operator:'',year:2026,quantity:1,status:'샘플 요청',feedbackDate:'',operatorFeedback:'',isReturned:'-',returnImpossibleReason:'',isOrdered:'-',returnQuantity:0,requestName:`260626_Buyer_목적`,meetingHW:'',meetingSW:'',meetingRF:'',meetingStructure:'',meetingDesign:'',meetingDevQA:'',dueDate:'',monitoringStart:'',monitoringEnd:'',monitoringFeedback:'',requester:'',keyContacts:'',attachment:`260626_개발사업본부 샘플요청서_샘플명_팀_이름.xlsx`};
   base.requesterEmail='';base.stakeholderEmail='';
   if(corp==='그룹')Object.assign(base,{projectName:'새 샘플 '+id,os:'',manufacturer:'',chip:''});
   else Object.assign(base,{modelName:'새 모델 '+id,productGroup:'',country:'',purpose:''});
@@ -1536,6 +1269,269 @@ function saveRequestForm(){
   if(mtg.enable){
     setTimeout(()=>createMeetingInvite(base, mtg), 350);
   }
+  // 2차: 요청서 표가 삽입된 HTML 메일(.eml) 자동 생성 → Outlook 초안으로 열림
+  setTimeout(()=>createRequestEml(base, mtg), 700);
+  // 3차: 준비 기한이 D-1이면 알림 메일도 함께 생성 (강제)
+  setTimeout(()=>checkD1Reminders(true), 1100);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  📧 요청서 HTML 메일(.eml) 생성 — Outlook 초안으로 열림 (미발송)
+//  X-Unsent: 1 헤더로 Outlook이 편집 가능한 새 메일 창으로 인식
+// ════════════════════════════════════════════════════════════════
+function _buildRequestHtml(s, mtg){
+  const dateK=mtg.date?(()=>{const [y,m,d]=mtg.date.split('-');return `${y}년 ${m}월 ${d}일`;})():'(미정)';
+  const timeK=mtg.time?(()=>{const [h,mi]=mtg.time.split(':');const hh=parseInt(h,10);const ap=hh<12?'오전':'오후';const h12=hh%12||12;return `${ap} ${h12}시${mi!=='00'?' '+mi+'분':''}`;})():'';
+  const th='background:#f1f5f9;padding:5px 8px;border:1px solid #cbd5e1;font-weight:600;color:#334155;font-size:11.5px';
+  const td='padding:5px 8px;border:1px solid #cbd5e1;color:#0f172a;font-size:11.5px';
+  const hd='background:#0d2240;color:#fff;padding:6px 10px;font-weight:600;font-size:12px;letter-spacing:0.02em';
+  const hd2='background:#1e3a5f;color:#fff;padding:6px 10px;font-weight:600;font-size:12px;letter-spacing:0.02em';
+  const esc=t=>{const v=(t===0||t)?String(t):'-';return v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0">
+<div style="font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:13px;color:#0f172a;line-height:1.5;width:640px">
+<p style="margin:0 0 10px">샘플 회의 공지 드립니다. 수신자께서는 참석 요청 드립니다.</p>
+<ul style="margin:0 0 14px;padding-left:18px">
+<li>일시 : ${dateK}${timeK?' '+timeK:''}</li>
+<li>장소 : ${esc(mtg.place)}</li>
+<li>샘플 요청서 : 아래 표 참조</li>
+</ul>
+<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:640px;font-size:11.5px;border:1px solid #cbd5e1;margin-bottom:10px;table-layout:fixed">
+<colgroup><col style="width:110px"><col style="width:210px"><col style="width:110px"><col style="width:210px"></colgroup>
+<tr><td colspan="4" style="${hd}">■ 영업담당자 작성</td></tr>
+<tr><td style="${th}">샘플 구분</td><td style="${td}">${esc(mtg.sampleType)} / ${esc(mtg.costType)}</td><td style="${th}">요청 부서</td><td style="${td}">${esc(s.salesDept)}</td></tr>
+<tr><td style="${th}">거래선(사업자)</td><td style="${td}">${esc(s.operator)}</td><td style="${th}">요청담당자</td><td style="${td}">${esc(s.requester)}</td></tr>
+<tr><td style="${th}">국가</td><td style="${td}">${esc(mtg.country)}</td><td style="${th}">발송 수량</td><td style="${td}">${esc(s.quantity)}</td></tr>
+<tr><td style="${th}">요청사유</td><td colspan="3" style="${td}">${esc(mtg.reason)}</td></tr>
+<tr><td style="${th}">PM 의견</td><td colspan="3" style="${td}">${esc(mtg.pmOpinion)}</td></tr>
+<tr><td style="${th}">판매전략</td><td colspan="3" style="${td}">${esc(mtg.strategy)}</td></tr>
+<tr><td style="${th}">발송 요청일</td><td colspan="3" style="${td}">${esc(mtg.sendReq)}</td></tr>
+</table>
+<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:640px;font-size:11.5px;border:1px solid #cbd5e1;table-layout:fixed">
+<colgroup><col style="width:110px"><col style="width:210px"><col style="width:110px"><col style="width:210px"></colgroup>
+<tr><td colspan="4" style="${hd2}">■ 스펙 정보</td></tr>
+<tr><td style="${th}">스펙 구분(OS)</td><td style="${td}">${esc(s.os)}</td><td style="${th}">Chip사</td><td style="${td}">${esc(s.manufacturer)}</td></tr>
+<tr><td style="${th}">Main Chip</td><td style="${td}">${esc(s.chip)}</td><td style="${th}">OS Version</td><td style="${td}">${esc(mtg.osver)}</td></tr>
+<tr><td style="${th}">Tuner</td><td style="${td}">${esc(mtg.tuner)}</td><td style="${th}">MW</td><td style="${td}">${esc(mtg.mw)}</td></tr>
+<tr><td style="${th}">CAS</td><td style="${td}">${esc(mtg.cas)}</td><td style="${th}">기구</td><td style="${td}">${esc(mtg.mech)}</td></tr>
+<tr><td style="${th}">Wi-Fi</td><td style="${td}">${esc(mtg.wifi)}</td><td style="${th}">BT</td><td style="${td}">${esc(mtg.bt)}</td></tr>
+<tr><td style="${th}">RCU</td><td colspan="3" style="${td}">${esc(mtg.rcu)}</td></tr>
+</table>
+<p style="margin:12px 0 0;font-size:11px;color:#64748b">※ 본 메일은 샘플 운영 관리 시스템에서 자동 생성되었습니다.</p>
+</div>
+</body></html>`;
+}
+
+function createRequestEml(s, mtg){
+  const nm=s.projectName||s.requestName||'샘플';
+  const subj=`[샘플 회의 소집] ${s.operator} - ${nm}`;
+  const attendees=[s.requesterEmail, ...(String(s.stakeholderEmail||'').split(/[,;]/))]
+    .map(e=>String(e||'').trim()).filter(e=>/.+@.+\..+/.test(e));
+  const html=_buildRequestHtml(s, mtg);
+
+  // 한글 제목은 RFC 2047 Base64 인코딩 (Outlook이 깨지지 않게)
+  const b64Subj='=?UTF-8?B?'+btoa(unescape(encodeURIComponent(subj)))+'?=';
+
+  // HTML 본문 Base64 인코딩 (한글 안전)
+  const b64Body=btoa(unescape(encodeURIComponent(html)));
+  // 76자마다 줄바꿈 (RFC 표준)
+  const b64Wrapped=b64Body.replace(/(.{76})/g,'$1\r\n');
+
+  const eml=[
+    `X-Unsent: 1`,                              // ★ Outlook이 "미발송 초안"으로 인식
+    `To: ${attendees.join(', ')}`,
+    `Subject: ${b64Subj}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    b64Wrapped
+  ].join('\r\n');
+
+  const blob=new Blob([eml],{type:'message/rfc822'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const fname=`샘플요청_${s.operator}_${nm}`.replace(/[\\/:*?"<>|]/g,'_').replace(/\s+/g,'_');
+  a.href=url; a.download=`${fname}.eml`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+
+  // 안내 토스트
+  if(typeof showToast==='function'){
+    showToast(`📧 메일 초안(.eml) 다운로드 완료 · 파일을 열면 Outlook 새 메일 창으로 열립니다`,'success');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ⏰ 준비 기한 D-1 자동 알림 메일 (.eml)
+// ════════════════════════════════════════════════════════════════
+function _buildD1EmailHtml(s){
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  const rn=s.requestName||nm;
+  const corpIcon=s.corporation==='그룹'?'🏢':'📡';
+  const corpColor=s.corporation==='그룹'?'#0d2240':'#0891b2';
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const groupFields=[['HW',s.meetingHW],['SW',s.meetingSW],['RF',s.meetingRF],['기구',s.meetingStructure],['디자인',s.meetingDesign],['개발QA',s.meetingDevQA]];
+  const bbFields=[['HW',s.meetingHW],['SW',s.meetingSW],['RF',s.meetingRF],['기구',s.meetingStructure],['디자인',s.meetingDesign]];
+  const fields=s.corporation==='그룹'?groupFields:bbFields;
+
+  const boxSt='border:1px solid #cbd5e1;border-radius:4px;padding:7px 10px;background:#fff;font-size:11.5px;min-height:15px;color:#0f172a';
+  const labelSt='font-size:12px;font-weight:600;color:#334155;margin-bottom:4px';
+  const secHead='font-size:12px;color:#64748b;margin-bottom:8px';
+  const secWrap='padding:14px 0 10px;border-bottom:1px solid #e2e8f0';
+
+  let fieldsHtml='<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:50%"><col style="width:50%"></colgroup>';
+  for(let i=0;i<fields.length;i+=2){
+    fieldsHtml+='<tr>';
+    for(let j=0;j<2;j++){
+      const f=fields[i+j];
+      const pad=j===0?'padding:6px 8px 6px 0':'padding:6px 0 6px 8px';
+      if(f){
+        fieldsHtml+=`<td style="${pad};vertical-align:top"><div style="${labelSt}">${f[0]}</div><div style="${boxSt}">${esc(f[1])||'&nbsp;'}</div></td>`;
+      } else {
+        fieldsHtml+=`<td style="${pad}"></td>`;
+      }
+    }
+    fieldsHtml+='</tr>';
+  }
+  fieldsHtml+='</table>';
+
+  const statuses=[{l:'샘플 요청',i:'📝'},{l:'샘플 준비 중',i:'📦'},{l:'샘플 발송',i:'🚚'},{l:'샘플 회수',i:'✅'}];
+  let statusHtml='<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:4px"><tr>';
+  statuses.forEach(st=>{
+    const active=st.l===s.status;
+    statusHtml+=`<td style="padding:6px 4px;font-size:12px;color:${active?'#0f172a':'#94a3b8'};font-weight:${active?'700':'400'};text-align:center">${st.i} ${st.l}</td>`;
+  });
+  statusHtml+='</tr></table>';
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0">
+<div style="font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:14px;color:#0f172a;line-height:1.5;width:640px">
+<p style="margin:0 0 6px;font-weight:700;font-size:15px">샘플 발송 D-1입니다.</p>
+<p style="margin:0 0 8px;font-size:13px">현재 진행사항 공유 부탁 드립니다.</p>
+
+<div style="${secWrap};border-top:1px solid #e2e8f0">
+  <div style="font-size:15px;font-weight:700">① ${esc(rn)}</div>
+  <div style="margin-top:6px;font-size:12px;color:#64748b">
+    <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${corpColor}15;color:${corpColor};font-weight:600;margin-right:6px">${corpIcon} ${s.corporation}</span>
+    ${esc(s.operator)} · ${esc(s.requester)} · ${esc(s.year)}년
+  </div>
+</div>
+
+<div style="${secWrap}">
+  <div style="${secHead}">② 회의 내용 준비사항</div>
+  ${fieldsHtml}
+</div>
+
+<div style="${secWrap}">
+  <div style="${secHead}">③ 진행 상태</div>
+  ${statusHtml}
+</div>
+
+<div style="${secWrap}">
+  <div style="${secHead}">④ ⑤ 기한 / 피드백 예정일</div>
+  <table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:50%"><col style="width:50%"></colgroup>
+    <tr>
+      <td style="padding:0 8px 0 0;vertical-align:top"><div style="${labelSt}">준비 기한</div><div style="${boxSt}">${esc(s.dueDate)||'&nbsp;'}</div></td>
+      <td style="padding:0 0 0 8px;vertical-align:top"><div style="${labelSt}">피드백 예정일자</div><div style="${boxSt}">${esc(s.feedbackDate)||'&nbsp;'}</div></td>
+    </tr>
+  </table>
+</div>
+
+<div style="padding:14px 0 10px">
+  <div style="${secHead}">⑥ 사업자 모니터링 기간</div>
+  <table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:50%"><col style="width:50%"></colgroup>
+    <tr>
+      <td style="padding:0 8px 0 0;vertical-align:top"><div style="${labelSt}">시작일</div><div style="${boxSt}">${esc(s.monitoringStart)||'&nbsp;'}</div></td>
+      <td style="padding:0 0 0 8px;vertical-align:top"><div style="${labelSt}">종료일</div><div style="${boxSt}">${esc(s.monitoringEnd)||'&nbsp;'}</div></td>
+    </tr>
+  </table>
+</div>
+
+<p style="margin:16px 0 0;font-size:11px;color:#94a3b8">※ 본 메일은 샘플 운영 관리 시스템에서 준비 기한 D-1 자동 알림으로 생성되었습니다.</p>
+</div>
+</body></html>`;
+}
+
+function createD1Eml(s){
+  const nm=s.corporation==='그룹'?s.projectName:s.modelName;
+  const rn=s.requestName||nm;
+  const subj=`[D-1 알림] ${s.operator} - ${rn}`;
+  const attendees=[s.requesterEmail, ...(String(s.stakeholderEmail||'').split(/[,;]/))]
+    .map(e=>String(e||'').trim()).filter(e=>/.+@.+\..+/.test(e));
+  const html=_buildD1EmailHtml(s);
+
+  const b64Subj='=?UTF-8?B?'+btoa(unescape(encodeURIComponent(subj)))+'?=';
+  const b64Body=btoa(unescape(encodeURIComponent(html))).replace(/(.{76})/g,'$1\r\n');
+
+  const eml=[
+    'X-Unsent: 1',
+    `To: ${attendees.join(', ')}`,
+    `Subject: ${b64Subj}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    b64Body
+  ].join('\r\n');
+
+  const blob=new Blob([eml],{type:'message/rfc822'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const fname=`D-1알림_${s.operator}_${rn}`.replace(/[\\/:*?"<>|]/g,'_').replace(/\s+/g,'_');
+  a.href=url; a.download=`${fname}.eml`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+
+  if(typeof showToast==='function'){
+    showToast(`⏰ D-1 알림 메일(.eml) 준비됨 · ${rn}`,'success');
+  }
+}
+
+// 앱 로드 시 D-1 도래한 활성 샘플 자동 감지 → .eml 생성 (중복 방지)
+// force=true 이면 localStorage 이력 무시하고 조건만 확인
+function checkD1Reminders(force){
+  try {
+    const tomorrow=new Date();
+    tomorrow.setDate(tomorrow.getDate()+1);
+    const yyyy=tomorrow.getFullYear();
+    const mm=String(tomorrow.getMonth()+1).padStart(2,'0');
+    const dd=String(tomorrow.getDate()).padStart(2,'0');
+    const tomorrowStr=`${yyyy}-${mm}-${dd}`;
+
+    const key='d1_notified_v1';
+    let processed;
+    try { processed=JSON.parse(localStorage.getItem(key)||'[]'); } catch(_) { processed=[]; }
+    const processedSet=new Set(processed);
+
+    const targets=(samples||[]).filter(s=>{
+      if(s.dueDate!==tomorrowStr) return false;
+      if(s.status==='샘플 회수') return false;
+      const token=`${s.id}::${tomorrowStr}`;
+      if(force) return true;
+      return !processedSet.has(token);
+    });
+
+    // 진단용 로그 (F12 콘솔에서 확인 가능)
+    console.log(`[D-1 체크] 내일=${tomorrowStr}, force=${!!force}, 대상=${targets.length}건`, targets.map(s=>({id:s.id, due:s.dueDate, status:s.status, name:s.projectName||s.modelName})));
+
+    if(targets.length===0){
+      if(force && typeof showToast==='function'){
+        showToast(`ℹ️ D-1 대상 없음 (내일=${tomorrowStr})`,'info',3000);
+      }
+      return;
+    }
+
+    targets.forEach((s,i)=>{
+      setTimeout(()=>createD1Eml(s), 600*(i+1));
+      processedSet.add(`${s.id}::${tomorrowStr}`);
+    });
+
+    try { localStorage.setItem(key, JSON.stringify([...processedSet].slice(-500))); } catch(_) {}
+
+    if(typeof showToast==='function'){
+      setTimeout(()=>showToast(`⏰ 준비 기한 D-1: ${targets.length}건 알림 메일 초안 생성 중`,'info',4000), 200);
+    }
+  } catch(e){ console.error('checkD1Reminders 오류',e); }
 }
 
 // ── 회의 소집 본문 (요청서 영업담당자 + 스펙 부분) ────────────
@@ -1650,8 +1646,10 @@ function _showMeetingInviteModal(s, mtg, attendees, body){
         <div class="mh"><div class="mt">📅 회의 소집 초대 생성됨 <span style="font-size:11px;font-weight:600;color:var(--tm)">· 발송은 직접</span></div><button class="mc" onclick="closeModal()">×</button></div>
         <div class="mb">
           <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:11px 13px;font-size:12px;color:#15803d;margin-bottom:12px">
-            ✅ <strong>회의 초대 파일(.ics)이 다운로드</strong>되었습니다.<br>
-            파일을 더블클릭하면 Outlook 회의 작성창이 열립니다. 내용 확인 후 <strong>[보내기]를 직접</strong> 눌러 발송하세요. (자동 발송되지 않습니다)
+            ✅ <strong>회의 초대(.ics) + 요청서 메일(.eml) 2개 파일이 다운로드</strong>되었습니다.<br>
+            • <strong>.ics</strong> : 더블클릭 → Outlook 회의 초대 창 (일정·참석자 등록용)<br>
+            • <strong>.eml</strong> : 더블클릭 → Outlook 새 메일 창에 <strong>요청서 표가 삽입된 상태</strong>로 열림 (초안 상태, 미발송)<br>
+            내용 확인 후 <strong>[보내기]를 직접</strong> 눌러 발송하세요.
           </div>
           ${noAtt?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:9px 12px;font-size:11.5px;color:#c2410c;margin-bottom:12px">⚠️ 참석자 이메일이 없습니다. 요청서의 요청자/관련자 이메일을 입력하면 참석자가 자동 지정됩니다.</div>`:`<div style="font-size:11.5px;color:var(--ts);margin-bottom:6px"><strong>참석자(${attendees.length})</strong> : ${esc(attendees.join(', '))}</div>`}
           <div style="font-size:11.5px;color:var(--ts);margin-bottom:8px"><strong>제목</strong> : ${esc(subj)}</div>
@@ -1661,7 +1659,8 @@ function _showMeetingInviteModal(s, mtg, attendees, body){
         <div class="mf">
           <button class="btn btn-o" onclick="closeModal()">닫기</button>
           <button class="btn btn-o" onclick="window.open('${webUrl}','_blank')">🌐 Outlook 웹에서 열기</button>
-          <button class="btn btn-p" onclick="reDownloadInvite(${s.id})">⬇ .ics 다시 받기</button>
+          <button class="btn btn-o" onclick="reDownloadInvite(${s.id})">⬇ .ics 다시 받기</button>
+          <button class="btn btn-p" onclick="reDownloadEml(${s.id})">📧 .eml 다시 받기</button>
         </div>
       </div>
     </div>`;
@@ -1672,6 +1671,12 @@ function reDownloadInvite(id){
   const s=samples.find(x=>x.id===id);if(!s)return;
   const mtg=_defaultMtgFromSample(s);
   createMeetingInvite(s, mtg);
+}
+// 저장 이후 특정 건의 요청서 메일(.eml) 재생성
+function reDownloadEml(id){
+  const s=samples.find(x=>x.id===id);if(!s)return;
+  const mtg=_defaultMtgFromSample(s);
+  createRequestEml(s, mtg);
 }
 function _defaultMtgFromSample(s){
   const fb=String(s.monitoringFeedback||'');
@@ -1783,7 +1788,10 @@ function _buildMailBody(s){
     `■ 준비사항`,
     `HW: ${s.meetingHW||'-'}`,
     `SW: ${s.meetingSW||'-'}`,
+    `RF: ${s.meetingRF||'-'}`,
     `기구: ${s.meetingStructure||'-'}`,
+    `디자인: ${s.meetingDesign||'-'}`,
+    ...(s.corporation==='그룹'?[`개발QA: ${s.meetingDevQA||'-'}`]:[]),
     ``,
     `■ 사업자 피드백`,
     s.monitoringFeedback||'-',
@@ -1914,7 +1922,7 @@ function parseRows(dataRows, headerRow, corp){
 
     if(!hasError){
       // ④ JSON 필드명으로 매핑 + 기본값 보완
-      const mapped={id:nextId()+valid.length,corporation:corp,requestName:'',meetingHW:'',meetingSW:'',meetingStructure:'',dueDate:'',monitoringStart:'',monitoringEnd:'',monitoringFeedback:'',requester:'',keyContacts:'',attachment:''};
+      const mapped={id:nextId()+valid.length,corporation:corp,requestName:'',meetingHW:'',meetingSW:'',meetingRF:'',meetingStructure:'',meetingDesign:'',meetingDevQA:'',dueDate:'',monitoringStart:'',monitoringEnd:'',monitoringFeedback:'',requester:'',keyContacts:'',attachment:''};
       Object.entries(colMap).forEach(([excelKey,jsonKey])=>{mapped[jsonKey]=record[excelKey]??'';});
       mapped.year=normalizeYear(mapped.year);
       if(mapped.quantity)mapped.quantity=parseInt(mapped.quantity)||1;
